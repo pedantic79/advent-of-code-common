@@ -12,3 +12,8 @@ Update:
 ```bash
 git subtree push --prefix=src/common common main
 ```
+
+Pull:
+```bash
+git subtree pull --prefix=src/common common main --squash
+```
