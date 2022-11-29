@@ -7,7 +7,7 @@ Use as a git subtree
 Setup:
 ```bash
 git remote add -f common https://github.com/pedantic79/advent-of-code-common.git
-git subtree add --prefix src/common common main --squash
+git subtree add --prefix=src/common common main --squash
 ```
 
 Update:
@@ -25,7 +25,7 @@ git subtree pull --prefix=src/common common main --squash
 
 Setup:
 ```bash
-git subtree add --prefix src/common https://github.com/pedantic79/advent-of-code-common.git main --squash
+git subtree add --prefix=src/common https://github.com/pedantic79/advent-of-code-common.git main --squash
 ```
 
 Update:
