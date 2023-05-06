@@ -1,12 +1,12 @@
 use std::{fmt::Debug, ops::RangeFrom};
 
 use nom::{
-    bytes::complete::take,
+    character::complete::newline,
     combinator::{all_consuming, map, opt},
     error::{ErrorKind, ParseError},
     multi::separated_list0,
     sequence::terminated,
-    AsChar, Compare, CompareResult, IResult, InputIter, InputLength, InputTake, Parser, Slice,
+    AsChar, Compare, IResult, InputIter, InputLength, InputTake, Parser, Slice,
 };
 
 /// parser for `usize` that is a  wrapper around [u64](https://docs.rs/nom/latest/nom/character/complete/fn.u64.html).
@@ -67,41 +67,12 @@ macro_rules! ints {
 
 ints! { nom_i8,i8 nom_i16,i16 nom_i32,i32 nom_i64,i64 nom_i128,i128}
 
-pub trait NewLine {
-    fn get_newline() -> Self;
-}
-
-impl NewLine for &str {
-    fn get_newline() -> Self {
-        "\n"
-    }
-}
-
-impl NewLine for &[u8] {
-    fn get_newline() -> Self {
-        b"\n"
-    }
-}
-
-fn nl<I, E>(s: I) -> IResult<I, I, E>
-where
-    I: NewLine + Compare<I> + InputIter + InputTake + Clone,
-    E: ParseError<I>,
-{
-    let (remainder, ch) = take(1_usize)(s.clone())?;
-
-    if ch.compare(I::get_newline()) != CompareResult::Ok {
-        Err(nom::Err::Error(E::from_error_kind(s, ErrorKind::Not)))
-    } else {
-        Ok((remainder, ch))
-    }
-}
-
 pub fn process_input<F, I, R, E>(mut f: F) -> impl FnMut(I) -> R
 where
-    I: NewLine + Compare<I> + InputIter + InputTake + Clone + InputLength,
+    I: Compare<I> + InputIter + Slice<RangeFrom<usize>> + InputLength + InputTake + Clone,
     F: Parser<I, R, E>,
     E: ParseError<I> + Debug,
+    <I as InputIter>::Item: AsChar,
 {
     move |i: I| {
         all_consuming(optional_trailing_nl(|x| f.parse(x)))
@@ -113,35 +84,37 @@ where
 
 pub fn optional_trailing_nl<F, I, R, E>(mut f: F) -> impl FnMut(I) -> IResult<I, R, E>
 where
-    I: NewLine + Compare<I> + InputIter + InputTake + Clone,
+    I: Compare<I> + InputIter + InputTake + Clone + Slice<RangeFrom<usize>>,
     F: Parser<I, R, E>,
     E: ParseError<I>,
+    <I as InputIter>::Item: AsChar,
 {
-    move |i: I| terminated(|x| f.parse(x), opt(nl)).parse(i)
+    move |i: I| terminated(|x| f.parse(x), opt(newline)).parse(i)
 }
 
 pub fn nom_lines<F, I, R, E>(mut f: F) -> impl FnMut(I) -> IResult<I, Vec<R>, E>
 where
-    I: NewLine + Compare<I> + InputIter + InputTake + Clone + InputLength,
+    I: Compare<I> + InputIter + Slice<RangeFrom<usize>> + InputLength + InputTake + Clone,
     F: Parser<I, R, E>,
     E: ParseError<I>,
+    <I as InputIter>::Item: AsChar,
 {
-    move |i: I| separated_list0(nl, |x| f.parse(x)).parse(i)
+    move |i: I| separated_list0(newline, |x| f.parse(x)).parse(i)
 }
 
-pub fn separated_fold0<I, S, SO, F, FO, C, J, R, E>(
+pub fn fold_separated_list0<I, O, O2, E, F, G, H, R, S>(
     mut sep: S,
     mut f: F,
-    mut init: J,
-    mut combiner: C,
+    mut init: H,
+    mut g: G,
 ) -> impl FnMut(I) -> IResult<I, R, E>
 where
     I: Clone + InputLength,
-    F: Parser<I, FO, E>,
-    S: Parser<I, SO, E>,
+    F: Parser<I, O, E>,
+    S: Parser<I, O2, E>,
     E: ParseError<I>,
-    C: FnMut(R, FO) -> R,
-    J: FnMut() -> R,
+    G: FnMut(R, O) -> R,
+    H: FnMut() -> R,
 {
     move |mut i: I| {
         let mut res = init();
@@ -150,7 +123,7 @@ where
             Err(nom::Err::Error(_)) => return Ok((i, res)),
             Err(e) => return Err(e),
             Ok((i1, o)) => {
-                res = combiner(res, o);
+                res = g(res, o);
                 i = i1;
             }
         }
@@ -173,7 +146,7 @@ where
                         Err(nom::Err::Error(_)) => return Ok((i, res)),
                         Err(e) => return Err(e),
                         Ok((i2, o)) => {
-                            res = combiner(res, o);
+                            res = g(res, o);
                             i = i2;
                         }
                     }
@@ -183,19 +156,19 @@ where
     }
 }
 
-pub fn separated_fold1<I, S, SO, F, FO, C, J, R, E>(
+pub fn fold_separated_list1<I, O, O2, E, F, G, H, R, S>(
     mut sep: S,
     mut f: F,
-    mut init: J,
-    mut combiner: C,
+    mut init: H,
+    mut g: G,
 ) -> impl FnMut(I) -> IResult<I, R, E>
 where
     I: Clone + InputLength,
-    F: Parser<I, FO, E>,
-    S: Parser<I, SO, E>,
+    F: Parser<I, O, E>,
+    S: Parser<I, O2, E>,
     E: ParseError<I>,
-    C: FnMut(R, FO) -> R,
-    J: FnMut() -> R,
+    G: FnMut(R, O) -> R,
+    H: FnMut() -> R,
 {
     move |mut i: I| {
         let mut res = init();
@@ -204,7 +177,7 @@ where
         match f.parse(i.clone()) {
             Err(e) => return Err(e),
             Ok((i1, o)) => {
-                res = combiner(res, o);
+                res = g(res, o);
                 i = i1;
             }
         }
@@ -227,7 +200,7 @@ where
                         Err(nom::Err::Error(_)) => return Ok((i, res)),
                         Err(e) => return Err(e),
                         Ok((i2, o)) => {
-                            res = combiner(res, o);
+                            res = g(res, o);
                             i = i2;
                         }
                     }
