@@ -233,3 +233,37 @@ pub fn slice_get_mut_twice<T>(slice: &mut [T], index0: usize, index1: usize) -> 
         (one, two)
     }
 }
+
+#[inline]
+pub fn cantor2d_a<T>(x: T, y: T) -> usize
+where
+    T: num::Signed + num::PrimInt,
+{
+    // make sure the compiler optimises this conversion for types smaller than usize
+    let to_usize = |o: T| (unsafe { o.to_i32().unwrap_unchecked() }) as usize;
+
+    let x1 = to_usize((x.abs() << 1) | T::from(x.is_negative() as u8).unwrap());
+    let y1 = to_usize((y.abs() << 1) | T::from(y.is_negative() as u8).unwrap());
+
+    let sum = x1 + y1;
+    sum * (sum + 1) / 2 + y1
+}
+
+#[inline]
+pub fn cantor2d_b<T>(x: T, y: T) -> usize
+where
+    T: num::Signed + num::PrimInt + num::FromPrimitive,
+{
+    let to_usize = |o: T| (unsafe { o.to_i32().unwrap_unchecked() }) as usize;
+    let neg = T::from_i8(-1).unwrap();
+
+    let xsign = T::from_u8(x.is_negative() as u8).unwrap();
+    let ysign = T::from_u8(y.is_negative() as u8).unwrap();
+
+    let x1 = to_usize(x ^ (xsign * neg));
+    let y1 = to_usize(y ^ (ysign * neg));
+    let sum = x1 + y1;
+    let tri = sum * (sum + 1) / 2 + y1;
+
+    (to_usize(xsign) | (to_usize(ysign) << 1)) + tri * 4
+}
