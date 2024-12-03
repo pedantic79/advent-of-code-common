@@ -50,6 +50,8 @@
   - [solution](src/day01.rs)
 - [Day 2:](https://adventofcode.com/2023/day/2)
   - [solution](src/day02.rs)
+- [Day 3:](https://adventofcode.com/2023/day/3)
+  - [solution](src/day03.rs)
 <!-- Insert before -->
 
 See:
