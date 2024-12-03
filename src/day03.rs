@@ -1,49 +1,46 @@
 use aoc_runner_derive::{aoc, aoc_generator};
 use nom::{bytes::complete::tag, IResult};
-use regex::Regex;
 
 use crate::common::nom::nom_usize;
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct Mul(usize, usize);
+pub enum Symbols {
+    Mul(usize),
+    Do,
+    Dont,
+}
 
-fn parse_digit(s: &str) -> IResult<&str, Mul> {
+fn parse_digit(s: &str) -> IResult<&str, usize> {
     let (rest, a) = nom_usize(s)?;
     let (rest, _) = tag(",")(rest)?;
     let (rest, b) = nom_usize(rest)?;
 
-    Ok((rest, Mul(a, b)))
+    Ok((rest, a * b))
 }
 
-fn parse_mul(s: &str) -> IResult<&str, Mul> {
-    let (s, _) = tag("mul(")(s)?;
-    let (s, a) = nom_usize(s)?;
-    let (s, _) = tag(",")(s)?;
-    let (s, b) = nom_usize(s)?;
-    let (s, _) = tag(")")(s)?;
-
-    Ok((s, Mul(a, b)))
-}
-
-fn parse(s: &str) -> Option<(&str, Mul)> {
-    if let Some(idx) = s.find("mul(") {
-        let rest = &s[(idx + 4)..];
-        if let Ok((rest, m)) = parse_digit(rest) {
-            if rest.as_bytes()[0] == b')' {
-                Some((&rest[1..], m))
-            } else {
-                parse(&rest[1..])
+fn parse(s: &str) -> Option<(&str, Symbols)> {
+    let b = s.as_bytes();
+    for i in 0..s.len() {
+        match b[i] {
+            b'd' if b[i..].starts_with(b"don't") => return Some((&s[i + 5..], Symbols::Dont)),
+            b'd' if b[i..].starts_with(b"do") => return Some((&s[i + 2..], Symbols::Do)),
+            b'm' if b[i..].starts_with(b"mul(") => {
+                let rest = &s[(i + 4)..];
+                if let Ok((rest, m)) = parse_digit(rest) {
+                    if rest.as_bytes()[0] == b')' {
+                        return Some((&rest[1..], Symbols::Mul(m)));
+                    }
+                }
             }
-        } else {
-            parse(rest)
+            _ => {}
         }
-    } else {
-        None
     }
+
+    None
 }
 
-#[aoc_generator(day3, part1)]
-pub fn generator(input: &str) -> Vec<Mul> {
+#[aoc_generator(day3)]
+pub fn generator(input: &str) -> Vec<Symbols> {
     let mut input = input;
     let mut v = Vec::new();
     while let Some((i, m)) = parse(input) {
@@ -54,33 +51,29 @@ pub fn generator(input: &str) -> Vec<Mul> {
     v
 }
 
-#[aoc_generator(day3, part2)]
-pub fn generator2(input: &str) -> Vec<Mul> {
-    let r = Regex::new(r"(do\(\)|don't\(\)|mul\(\d+,\d+\))").unwrap();
-    let mut include = true;
-    let mut v = Vec::new();
-    for m in r.find_iter(input) {
-        if m.as_str() == "do()" {
-            include = true;
-        } else if m.as_str() == "don't()" {
-            include = false;
-        } else if include {
-            v.push(parse_mul(m.as_str()).unwrap().1)
-        }
-    }
-
-    v
-}
-
 #[aoc(day3, part1)]
-pub fn part1(inputs: &[Mul]) -> usize {
-    // println!("{}", inputs.len());
-    inputs.iter().map(|Mul(a, b)| a * b).sum()
+pub fn part1(inputs: &[Symbols]) -> usize {
+    inputs
+        .iter()
+        .map(|i| if let Symbols::Mul(x) = i { *x } else { 0 })
+        .sum()
 }
 
 #[aoc(day3, part2)]
-pub fn part2(inputs: &[Mul]) -> usize {
-    inputs.iter().map(|Mul(a, b)| a * b).sum()
+pub fn part2(inputs: &[Symbols]) -> usize {
+    let mut enabled = true;
+    inputs
+        .iter()
+        .map(|i| {
+            match i {
+                Symbols::Mul(x) if enabled => return *x,
+                Symbols::Do => enabled = true,
+                Symbols::Dont => enabled = false,
+                _ => {}
+            }
+            0
+        })
+        .sum()
 }
 
 #[cfg(test)]
@@ -119,10 +112,8 @@ mod tests {
             let input = INPUT.trim_end_matches('\n');
             let output = generator(input);
 
-            let output2 = generator2(input);
-
             assert_eq!(part1(&output), ANSWERS.0);
-            assert_eq!(part2(&output2), ANSWERS.1);
+            assert_eq!(part2(&output), ANSWERS.1);
         }
     }
 }
