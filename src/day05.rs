@@ -55,19 +55,19 @@ pub fn part1(inputs: &Object) -> usize {
 pub fn part2(inputs: &Object) -> usize {
     let mut count = 0;
     for page in &inputs.pages {
-        if !check_page(&inputs.rules, page) {
-            let mut page = page.to_vec();
+        let mut p = page.to_vec();
 
-            page.sort_by(|&a, &b| {
-                if inputs.rules.contains(&(a, b)) {
-                    Ordering::Less
-                } else {
-                    Ordering::Greater
-                }
-            });
+        p.sort_by(|&a, &b| {
+            if inputs.rules.contains(&(a, b)) {
+                Ordering::Less
+            } else {
+                Ordering::Greater
+            }
+        });
 
-            let middle = page.len() / 2;
-            count += page[middle];
+        if &p != page {
+            let middle = p.len() / 2;
+            count += p[middle];
         }
     }
 
