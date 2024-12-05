@@ -20,20 +20,24 @@ fn parse_digit(s: &str) -> IResult<&str, usize> {
 
 fn parse(s: &str) -> Option<(&str, Symbols)> {
     let b = s.as_bytes();
-    for i in 0..s.len() {
+    let mut i = 0;
+    while i < s.len() {
         match b[i] {
-            b'd' if b[i..].starts_with(b"don't") => return Some((&s[i + 5..], Symbols::Dont)),
-            b'd' if b[i..].starts_with(b"do") => return Some((&s[i + 2..], Symbols::Do)),
+            b'd' if b[i..].starts_with(b"don't()") => return Some((&s[i + 7..], Symbols::Dont)),
+            b'd' if b[i..].starts_with(b"do()") => return Some((&s[i + 4..], Symbols::Do)),
             b'm' if b[i..].starts_with(b"mul(") => {
-                let rest = &s[(i + 4)..];
+                i += 4;
+                let rest = &s[i..];
                 if let Ok((rest, m)) = parse_digit(rest) {
                     if rest.as_bytes()[0] == b')' {
                         return Some((&rest[1..], Symbols::Mul(m)));
                     }
                 }
+                continue;
             }
             _ => {}
         }
+        i += 1;
     }
 
     None
@@ -98,7 +102,7 @@ mod tests {
 
     #[test]
     pub fn part2_test() {
-        assert_eq!(part2(&generator(SAMPLE2)), 161);
+        assert_eq!(part2(&generator(SAMPLE2)), 48);
     }
 
     mod regression {
