@@ -1,7 +1,7 @@
-use std::collections::HashSet;
-
+use ahash::HashSetExt;
 use aoc_runner_derive::{aoc, aoc_generator};
 use pathfinding::matrix::directions;
+use rustc_hash::FxHashSet as HashSet;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Guard {
@@ -67,6 +67,56 @@ pub fn generator(input: &str) -> (Vec<Vec<u8>>, Guard) {
     )
 }
 
+fn route(inputs: &(Vec<Vec<u8>>, Guard)) -> HashSet<(usize, usize)> {
+    let map = inputs.0.to_vec();
+    let mut guard = inputs.1;
+
+    let mut seen = HashSet::new();
+    seen.insert((guard.y, guard.x));
+
+    while let Some((y, x)) = guard.pre_increment() {
+        if let Some(&cell) = map.get(y).and_then(|row| row.get(x)) {
+            if cell != b'#' {
+                seen.insert((y, x));
+                guard.increment();
+            } else {
+                guard.turn_right();
+            }
+        } else {
+            break;
+        }
+    }
+
+    seen
+}
+
+// fn route2(inputs: &(Vec<Vec<u8>>, Guard)) -> Vec<(usize, usize)> {
+//     let mut map = inputs.0.to_vec();
+//     let mut guard = inputs.1;
+
+//     while let Some((y, x)) = guard.pre_increment() {
+//         if let Some(&cell) = map.get(y).and_then(|row| row.get(x)) {
+//             if cell != b'#' {
+//                 map[y][x] = b'X';
+//                 guard.increment();
+//             } else {
+//                 guard.turn_right();
+//             }
+//         } else {
+//             break;
+//         }
+//     }
+
+//     map.iter()
+//         .enumerate()
+//         .flat_map(|(r, row)| {
+//             row.iter()
+//                 .enumerate()
+//                 .filter_map(move |(c, &b)| if b == b'X' { Some((r, c)) } else { None })
+//         })
+//         .collect()
+// }
+
 #[aoc(day6, part1)]
 pub fn part1(inputs: &(Vec<Vec<u8>>, Guard)) -> usize {
     let mut map = inputs.0.to_vec();
@@ -92,32 +142,33 @@ pub fn part1(inputs: &(Vec<Vec<u8>>, Guard)) -> usize {
 
 #[aoc(day6, part2)]
 pub fn part2(inputs: &(Vec<Vec<u8>>, Guard)) -> usize {
+    let possible = route(inputs);
+    let len = possible.len();
     let map = &inputs.0;
     let guard = inputs.1;
     let mut count = 0;
+    let mut seen: HashSet<(usize, usize, (isize, isize))> = HashSet::with_capacity(len * 2);
 
-    for (o_y, o_row) in map.iter().enumerate() {
-        for (o_x, &o_cell) in o_row.iter().enumerate() {
-            let mut seen: HashSet<(usize, usize, (isize, isize))> = HashSet::new();
-            let mut guard = guard;
-            if o_cell == b'#' {
-                continue;
-            }
-            while let Some((y, x)) = guard.pre_increment() {
-                if let Some(&cell) = map.get(y).and_then(|row| row.get(x)) {
-                    let cell = if o_y == y && o_x == x { b'#' } else { cell };
-                    if cell != b'#' {
-                        if !seen.insert((y, x, guard.dir)) {
-                            count += 1;
-                            break;
-                        }
-                        guard.increment();
-                    } else {
-                        guard.turn_right();
+    for (o_y, o_x) in possible {
+        seen.clear();
+        let mut guard = guard;
+        if map[o_y][o_x] == b'#' {
+            continue;
+        }
+        while let Some((y, x)) = guard.pre_increment() {
+            if let Some(&cell) = map.get(y).and_then(|row| row.get(x)) {
+                let cell = if o_y == y && o_x == x { b'#' } else { cell };
+                if cell != b'#' {
+                    if !seen.insert((y, x, guard.dir)) {
+                        count += 1;
+                        break;
                     }
+                    guard.increment();
                 } else {
-                    break;
+                    guard.turn_right();
                 }
+            } else {
+                break;
             }
         }
     }
@@ -161,15 +212,15 @@ mod tests {
         use super::*;
 
         const INPUT: &str = include_str!("../input/2024/day6.txt");
-        const ANSWERS: (usize, usize) = (0, 0);
+        const ANSWERS: (usize, usize) = (5095, 1933);
 
         #[test]
         pub fn test() {
             let input = INPUT.trim_end_matches('\n');
-            // let output = generator(input);
+            let output = generator(input);
 
-            // assert_eq!(part1(&output), ANSWERS.0);
-            // assert_eq!(part2(&output), ANSWERS.1);
+            assert_eq!(part1(&output), ANSWERS.0);
+            assert_eq!(part2(&output), ANSWERS.1);
         }
     }
 }
