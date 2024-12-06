@@ -10,6 +10,8 @@
   - [solution](src/day04.rs)
 - [Day 5: Print Queue](https://adventofcode.com/2024/day/5)
   - [solution](src/day05.rs)
+- [Day 6: Guard Gallivant](https://adventofcode.com/2024/day/6)
+  - [solution](src/day06.rs)
 <!-- Insert before -->
 
 See:
