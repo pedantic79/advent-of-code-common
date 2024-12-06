@@ -25,15 +25,7 @@ pub fn generator(input: &str) -> Object {
 }
 
 fn check_page(rules: &HashSet<(usize, usize)>, page: &[usize]) -> bool {
-    for (i, &current) in page.iter().enumerate() {
-        for &next_page in page[i + 1..].iter() {
-            if !rules.contains(&(current, next_page)) {
-                return false;
-            }
-        }
-    }
-
-    true
+    page.windows(2).all(|win| rules.contains(&(win[0], win[1])))
 }
 
 #[aoc(day5, part1)]
@@ -55,6 +47,10 @@ pub fn part1(inputs: &Object) -> usize {
 pub fn part2(inputs: &Object) -> usize {
     let mut count = 0;
     for page in &inputs.pages {
+        if check_page(&inputs.rules, page) {
+            continue;
+        }
+
         let mut p = page.to_vec();
 
         p.sort_by(|&a, &b| {
