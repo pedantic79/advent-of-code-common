@@ -1,11 +1,23 @@
 use aoc_runner_derive::{aoc, aoc_generator};
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct Object {}
+use crate::common::AddIsize;
 
 #[aoc_generator(day4)]
 pub fn generator(input: &str) -> Vec<Vec<u8>> {
     input.lines().map(|line| line.bytes().collect()).collect()
+}
+
+fn get(inputs: &[Vec<u8>], r: usize, c: usize, r_step: isize, c_step: isize) -> Option<u8> {
+    let r = r.checked_add_isize(r_step)?;
+    let c = c.checked_add_isize(c_step)?;
+
+    inputs.get(r).and_then(|row| row.get(c)).copied()
+}
+
+fn check_mas(inputs: &[Vec<u8>], r: usize, c: usize, r_step: isize, c_step: isize) -> bool {
+    (1..4)
+        .map(|step| get(inputs, r, c, r_step * step, c_step * step))
+        .eq("MAS".bytes().map(Some))
 }
 
 #[aoc(day4, part1)]
@@ -14,78 +26,15 @@ pub fn part1(inputs: &[Vec<u8>]) -> usize {
     for (r, row) in inputs.iter().enumerate() {
         for (c, col) in row.iter().enumerate() {
             if col == &b'X' {
-                // right
-                if row.get(c + 1) == Some(&b'M')
-                    && row.get(c + 2) == Some(&b'A')
-                    && row.get(c + 3) == Some(&b'S')
-                {
-                    count += 1;
-                }
+                count += usize::from(check_mas(inputs, r, c, 0, 1));
+                count += usize::from(check_mas(inputs, r, c, 0, -1));
+                count += usize::from(check_mas(inputs, r, c, 1, 0));
+                count += usize::from(check_mas(inputs, r, c, -1, 0));
 
-                // left
-                if row.get(c.wrapping_sub(1)) == Some(&b'M')
-                    && row.get(c.wrapping_sub(2)) == Some(&b'A')
-                    && row.get(c.wrapping_sub(3)) == Some(&b'S')
-                {
-                    count += 1;
-                }
-
-                // down
-                if inputs.get(r + 1).and_then(|r2| r2.get(c)) == Some(&b'M')
-                    && inputs.get(r + 2).and_then(|r2| r2.get(c)) == Some(&b'A')
-                    && inputs.get(r + 3).and_then(|r2| r2.get(c)) == Some(&b'S')
-                {
-                    count += 1;
-                }
-
-                // up
-                if inputs.get(r.wrapping_sub(1)).and_then(|r2| r2.get(c)) == Some(&b'M')
-                    && inputs.get(r.wrapping_sub(2)).and_then(|r2| r2.get(c)) == Some(&b'A')
-                    && inputs.get(r.wrapping_sub(3)).and_then(|r2| r2.get(c)) == Some(&b'S')
-                {
-                    count += 1;
-                }
-
-                // right+down
-                if inputs.get(r + 1).and_then(|r2| r2.get(c + 1)) == Some(&b'M')
-                    && inputs.get(r + 2).and_then(|r2| r2.get(c + 2)) == Some(&b'A')
-                    && inputs.get(r + 3).and_then(|r2| r2.get(c + 3)) == Some(&b'S')
-                {
-                    count += 1;
-                }
-
-                // right+up
-                if inputs.get(r + 1).and_then(|r2| r2.get(c.wrapping_sub(1))) == Some(&b'M')
-                    && inputs.get(r + 2).and_then(|r2| r2.get(c.wrapping_sub(2))) == Some(&b'A')
-                    && inputs.get(r + 3).and_then(|r2| r2.get(c.wrapping_sub(3))) == Some(&b'S')
-                {
-                    count += 1;
-                }
-
-                // left+down
-                if inputs.get(r.wrapping_sub(1)).and_then(|r2| r2.get(c + 1)) == Some(&b'M')
-                    && inputs.get(r.wrapping_sub(2)).and_then(|r2| r2.get(c + 2)) == Some(&b'A')
-                    && inputs.get(r.wrapping_sub(3)).and_then(|r2| r2.get(c + 3)) == Some(&b'S')
-                {
-                    count += 1;
-                }
-
-                // left+up
-                if inputs
-                    .get(r.wrapping_sub(1))
-                    .and_then(|r2| r2.get(c.wrapping_sub(1)))
-                    == Some(&b'M')
-                    && inputs
-                        .get(r.wrapping_sub(2))
-                        .and_then(|r2| r2.get(c.wrapping_sub(2)))
-                        == Some(&b'A')
-                    && inputs
-                        .get(r.wrapping_sub(3))
-                        .and_then(|r2| r2.get(c.wrapping_sub(3)))
-                        == Some(&b'S')
-                {
-                    count += 1;
-                }
+                count += usize::from(check_mas(inputs, r, c, 1, 1));
+                count += usize::from(check_mas(inputs, r, c, 1, -1));
+                count += usize::from(check_mas(inputs, r, c, -1, -1));
+                count += usize::from(check_mas(inputs, r, c, -1, 1));
             }
         }
     }
@@ -93,20 +42,12 @@ pub fn part1(inputs: &[Vec<u8>]) -> usize {
     count
 }
 
-fn get(inputs: &[Vec<u8>], r: usize, c: usize) -> [Option<&u8>; 4] {
+fn get_corners(inputs: &[Vec<u8>], r: usize, c: usize) -> [Option<u8>; 4] {
     [
-        inputs
-            .get(r.wrapping_sub(1))
-            .and_then(|r2| r2.get(c.wrapping_sub(1))),
-        inputs
-            .get(r.wrapping_sub(1))
-            .and_then(|r2| r2.get(c.wrapping_add(1))),
-        inputs
-            .get(r.wrapping_add(1))
-            .and_then(|r2| r2.get(c.wrapping_add(1))),
-        inputs
-            .get(r.wrapping_add(1))
-            .and_then(|r2| r2.get(c.wrapping_sub(1))),
+        get(inputs, r, c, 1, 1),
+        get(inputs, r, c, 1, -1),
+        get(inputs, r, c, -1, -1),
+        get(inputs, r, c, -1, 1),
     ]
 }
 
@@ -117,11 +58,11 @@ pub fn part2(inputs: &[Vec<u8>]) -> usize {
     for (r, row) in inputs.iter().enumerate() {
         for (c, col) in row.iter().enumerate() {
             if col == &b'A' {
-                let v = get(inputs, r, c);
-                if v == [Some(&b'M'), Some(&b'S'), Some(&b'S'), Some(&b'M')]
-                    || v == [Some(&b'S'), Some(&b'S'), Some(&b'M'), Some(&b'M')]
-                    || v == [Some(&b'S'), Some(&b'M'), Some(&b'M'), Some(&b'S')]
-                    || v == [Some(&b'M'), Some(&b'M'), Some(&b'S'), Some(&b'S')]
+                let v = get_corners(inputs, r, c);
+                if v == [Some(b'M'), Some(b'S'), Some(b'S'), Some(b'M')]
+                    || v == [Some(b'S'), Some(b'S'), Some(b'M'), Some(b'M')]
+                    || v == [Some(b'S'), Some(b'M'), Some(b'M'), Some(b'S')]
+                    || v == [Some(b'M'), Some(b'M'), Some(b'S'), Some(b'S')]
                 {
                     count += 1;
                 }
