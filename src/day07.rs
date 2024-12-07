@@ -1,4 +1,5 @@
 use aoc_runner_derive::{aoc, aoc_generator};
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 use crate::common::parse::parse_split;
 
@@ -21,12 +22,14 @@ pub fn generator(input: &str) -> Vec<Math> {
         .collect()
 }
 
+// fn find(total: usize, rest: &[usize], target: usize) -> Option<usize> {}
+
 #[aoc(day7, part1)]
 pub fn part1(inputs: &[Math]) -> usize {
     inputs
         .iter()
         .map(|line| {
-            if let Some(v) = pathfinding::directed::dfs::dfs(
+            if pathfinding::directed::dfs::dfs(
                 (line.numbers[0], &line.numbers[1..]),
                 |(total, rest)| {
                     if rest.is_empty() {
@@ -36,7 +39,9 @@ pub fn part1(inputs: &[Math]) -> usize {
                     }
                 },
                 |(total, rest)| *total == line.total && rest.is_empty(),
-            ) {
+            )
+            .is_some()
+            {
                 line.total
             } else {
                 0
@@ -52,7 +57,7 @@ fn concat(a: usize, b: usize) -> usize {
 #[aoc(day7, part2)]
 pub fn part2(inputs: &[Math]) -> usize {
     inputs
-        .iter()
+        .par_iter()
         .map(|line| {
             if pathfinding::directed::dfs::dfs(
                 (line.numbers[0], &line.numbers[1..]),
