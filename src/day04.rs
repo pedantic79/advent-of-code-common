@@ -1,22 +1,21 @@
 use aoc_runner_derive::{aoc, aoc_generator};
-
-use crate::common::AddIsize;
+use pathfinding::matrix::directions;
 
 #[aoc_generator(day4)]
 pub fn generator(input: &str) -> Vec<Vec<u8>> {
     input.lines().map(|line| line.bytes().collect()).collect()
 }
 
-fn get(inputs: &[Vec<u8>], r: usize, c: usize, r_step: isize, c_step: isize) -> Option<u8> {
-    let r = r.checked_add_isize(r_step)?;
-    let c = c.checked_add_isize(c_step)?;
+fn get(inputs: &[Vec<u8>], r: usize, c: usize, (r_step, c_step): (isize, isize)) -> Option<u8> {
+    let r = r.checked_add_signed(r_step)?;
+    let c = c.checked_add_signed(c_step)?;
 
     inputs.get(r).and_then(|row| row.get(c)).copied()
 }
 
-fn check_mas(inputs: &[Vec<u8>], r: usize, c: usize, r_step: isize, c_step: isize) -> bool {
+fn check_mas(inputs: &[Vec<u8>], r: usize, c: usize, (r_step, c_step): (isize, isize)) -> bool {
     (1..4)
-        .map(|step| get(inputs, r, c, r_step * step, c_step * step))
+        .map(|step| get(inputs, r, c, (r_step * step, c_step * step)))
         .eq("MAS".bytes().map(Some))
 }
 
@@ -26,15 +25,15 @@ pub fn part1(inputs: &[Vec<u8>]) -> usize {
     for (r, row) in inputs.iter().enumerate() {
         for (c, col) in row.iter().enumerate() {
             if col == &b'X' {
-                count += usize::from(check_mas(inputs, r, c, 0, 1));
-                count += usize::from(check_mas(inputs, r, c, 0, -1));
-                count += usize::from(check_mas(inputs, r, c, 1, 0));
-                count += usize::from(check_mas(inputs, r, c, -1, 0));
+                count += usize::from(check_mas(inputs, r, c, directions::N));
+                count += usize::from(check_mas(inputs, r, c, directions::E));
+                count += usize::from(check_mas(inputs, r, c, directions::S));
+                count += usize::from(check_mas(inputs, r, c, directions::W));
 
-                count += usize::from(check_mas(inputs, r, c, 1, 1));
-                count += usize::from(check_mas(inputs, r, c, 1, -1));
-                count += usize::from(check_mas(inputs, r, c, -1, -1));
-                count += usize::from(check_mas(inputs, r, c, -1, 1));
+                count += usize::from(check_mas(inputs, r, c, directions::NE));
+                count += usize::from(check_mas(inputs, r, c, directions::SE));
+                count += usize::from(check_mas(inputs, r, c, directions::SW));
+                count += usize::from(check_mas(inputs, r, c, directions::NW));
             }
         }
     }
@@ -44,10 +43,10 @@ pub fn part1(inputs: &[Vec<u8>]) -> usize {
 
 fn get_corners(inputs: &[Vec<u8>], r: usize, c: usize) -> [Option<u8>; 4] {
     [
-        get(inputs, r, c, 1, 1),
-        get(inputs, r, c, 1, -1),
-        get(inputs, r, c, -1, -1),
-        get(inputs, r, c, -1, 1),
+        get(inputs, r, c, directions::NE),
+        get(inputs, r, c, directions::SE),
+        get(inputs, r, c, directions::SW),
+        get(inputs, r, c, directions::NW),
     ]
 }
 
