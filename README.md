@@ -12,6 +12,8 @@
   - [solution](src/day05.rs)
 - [Day 6: Guard Gallivant](https://adventofcode.com/2024/day/6)
   - [solution](src/day06.rs)
+- [Day 7: Bridge Repair](https://adventofcode.com/2024/day/7)
+  - [solution](src/day07.rs)
 <!-- Insert before -->
 
 See:
