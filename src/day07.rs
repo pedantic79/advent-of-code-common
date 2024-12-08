@@ -1,4 +1,5 @@
 use aoc_runner_derive::{aoc, aoc_generator};
+use num::PrimInt;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 use crate::common::parse::parse_split;
@@ -31,14 +32,14 @@ pub fn part1(inputs: &[Math]) -> usize {
         .map(|line| {
             if pathfinding::directed::dfs::dfs(
                 (line.numbers[0], &line.numbers[1..]),
-                |(total, rest)| {
-                    if rest.is_empty() {
+                |&(total, rest)| {
+                    if total > line.total || rest.is_empty() {
                         vec![]
                     } else {
                         vec![(total + rest[0], &rest[1..]), (total * rest[0], &rest[1..])]
                     }
                 },
-                |(total, rest)| *total == line.total && rest.is_empty(),
+                |&(total, rest)| total == line.total && rest.is_empty(),
             )
             .is_some()
             {
@@ -51,7 +52,9 @@ pub fn part1(inputs: &[Math]) -> usize {
 }
 
 fn concat(a: usize, b: usize) -> usize {
-    str::parse::<usize>(&format!("{a}{b}")).unwrap()
+    let num_digits = (b as f64).log10().floor() as u32 + 1;
+    let shift = 10.pow(num_digits);
+    a * shift + b
 }
 
 #[aoc(day7, part2)]
@@ -61,18 +64,18 @@ pub fn part2(inputs: &[Math]) -> usize {
         .map(|line| {
             if pathfinding::directed::dfs::dfs(
                 (line.numbers[0], &line.numbers[1..]),
-                |(total, rest)| {
-                    if rest.is_empty() {
+                |&(total, rest)| {
+                    if total > line.total || rest.is_empty() {
                         vec![]
                     } else {
                         vec![
                             (total + rest[0], &rest[1..]),
                             (total * rest[0], &rest[1..]),
-                            (concat(*total, rest[0]), &rest[1..]),
+                            (concat(total, rest[0]), &rest[1..]),
                         ]
                     }
                 },
-                |(total, rest)| *total == line.total && rest.is_empty(),
+                |&(total, rest)| total == line.total && rest.is_empty(),
             )
             .is_some()
             {
@@ -112,7 +115,7 @@ mod tests {
 
     #[test]
     pub fn part2_test() {
-        assert_eq!(part2(&generator(SAMPLE)), 336);
+        assert_eq!(part2(&generator(SAMPLE)), 11387);
     }
 
     mod regression {
