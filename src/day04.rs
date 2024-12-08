@@ -25,15 +25,10 @@ pub fn part1(inputs: &[Vec<u8>]) -> usize {
     for (r, row) in inputs.iter().enumerate() {
         for (c, col) in row.iter().enumerate() {
             if col == &b'X' {
-                count += usize::from(check_mas(inputs, r, c, directions::N));
-                count += usize::from(check_mas(inputs, r, c, directions::E));
-                count += usize::from(check_mas(inputs, r, c, directions::S));
-                count += usize::from(check_mas(inputs, r, c, directions::W));
-
-                count += usize::from(check_mas(inputs, r, c, directions::NE));
-                count += usize::from(check_mas(inputs, r, c, directions::SE));
-                count += usize::from(check_mas(inputs, r, c, directions::SW));
-                count += usize::from(check_mas(inputs, r, c, directions::NW));
+                count += directions::DIRECTIONS_8
+                    .iter()
+                    .map(|&dir| usize::from(check_mas(inputs, r, c, dir)))
+                    .sum::<usize>();
             }
         }
     }
