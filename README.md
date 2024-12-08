@@ -14,6 +14,8 @@
   - [solution](src/day06.rs)
 - [Day 7: Bridge Repair](https://adventofcode.com/2024/day/7)
   - [solution](src/day07.rs)
+- [Day 8: Resonant Collinearity](https://adventofcode.com/2024/day/8)
+  - [solution](src/day08.rs)
 <!-- Insert before -->
 
 See:
