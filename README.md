@@ -16,6 +16,8 @@
   - [solution](src/day07.rs)
 - [Day 8: Resonant Collinearity](https://adventofcode.com/2024/day/8)
   - [solution](src/day08.rs)
+- [Day 9: Disk Fragmenter](https://adventofcode.com/2024/day/9)
+  - [solution](src/day09.rs)
 <!-- Insert before -->
 
 See:
