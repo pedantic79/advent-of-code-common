@@ -1,11 +1,15 @@
+use std::iter;
+
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use aoc_runner_derive::{aoc, aoc_generator};
 use itertools::{iterate, Itertools};
 
+type Point = (usize, usize);
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct Input {
-    map: HashMap<char, Vec<(usize, usize)>>,
-    size: (usize, usize),
+    map: HashMap<char, Vec<Point>>,
+    size: Point,
 }
 
 #[aoc_generator(day8)]
@@ -27,61 +31,20 @@ pub fn generator(input: &str) -> Input {
     }
 }
 
-fn checked_add_pos(
-    v: (usize, usize),
-    x: (usize, usize),
-    y: (usize, usize),
-) -> Option<(usize, usize)> {
-    let a = v.0.checked_add(x.0)?.checked_sub(y.0)?;
-    let b = v.1.checked_add(x.1)?.checked_sub(y.1)?;
+fn checked_add_pos(v: Option<Point>, x: Point, y: Point) -> Option<Point> {
+    let (v0, v1) = v?;
+    let a = v0.checked_add(x.0)?.checked_sub(y.0)?;
+    let b = v1.checked_add(x.1)?.checked_sub(y.1)?;
 
     Some((a, b))
 }
 
 fn generate_resonance(
-    a: (usize, usize),
-    b: (usize, usize),
-    size: (usize, usize),
-    map: &mut HashSet<(usize, usize)>,
-) {
-    if let Some(x) = checked_add_pos(a, a, b) {
-        if x.0 < size.0 && x.1 < size.1 {
-            map.insert(x);
-        }
-    }
-
-    if let Some(x) = checked_add_pos(b, b, a) {
-        if x.0 < size.0 && x.1 < size.1 {
-            map.insert(x);
-        }
-    }
-}
-
-fn generate_resonance2(
-    a: (usize, usize),
-    b: (usize, usize),
-    size: (usize, usize),
-    map: &mut HashSet<(usize, usize)>,
-) {
-    for (y, x) in iterate(a, |v| {
-        checked_add_pos(*v, a, b).unwrap_or((usize::MAX, usize::MAX))
-    }) {
-        if y < size.0 && x < size.1 {
-            map.insert((y, x));
-        } else {
-            break;
-        }
-    }
-
-    for (y, x) in iterate(b, |v| {
-        checked_add_pos(*v, b, a).unwrap_or((usize::MAX, usize::MAX))
-    }) {
-        if y < size.0 && x < size.1 {
-            map.insert((y, x));
-        } else {
-            break;
-        }
-    }
+    size: Point,
+    iter: impl Iterator<Item = Option<Point>>,
+) -> impl Iterator<Item = Point> {
+    iter.map_while(|o| o)
+        .take_while(move |p| p.0 < size.0 && p.1 < size.1)
 }
 
 #[aoc(day8, part1)]
@@ -89,7 +52,17 @@ pub fn part1(Input { map, size }: &Input) -> usize {
     let mut points = HashSet::new();
     for pos in map.values() {
         for x in pos.iter().combinations(2) {
-            generate_resonance(*x[0], *x[1], *size, &mut points);
+            let (a, b) = (*x[0], *x[1]);
+
+            points.extend(generate_resonance(
+                *size,
+                iter::once(checked_add_pos(Some(a), a, b)),
+            ));
+
+            points.extend(generate_resonance(
+                *size,
+                iter::once(checked_add_pos(Some(b), b, a)),
+            ));
         }
     }
 
@@ -101,7 +74,16 @@ pub fn part2(Input { map, size }: &Input) -> usize {
     let mut points = HashSet::new();
     for pos in map.values() {
         for x in pos.iter().combinations(2) {
-            generate_resonance2(*x[0], *x[1], *size, &mut points);
+            let (a, b) = (*x[0], *x[1]);
+            points.extend(generate_resonance(
+                *size,
+                iterate(Some(b), |&v| checked_add_pos(v, b, a)),
+            ));
+
+            points.extend(generate_resonance(
+                *size,
+                iterate(Some(a), |&v| checked_add_pos(v, a, b)),
+            ));
         }
     }
 
@@ -146,7 +128,7 @@ mod tests {
         use super::*;
 
         const INPUT: &str = include_str!("../input/2024/day8.txt");
-        const ANSWERS: (usize, usize) = (413, 1417);
+        const ANSWERS: Point = (413, 1417);
 
         #[test]
         pub fn test() {
