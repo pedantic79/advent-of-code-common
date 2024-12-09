@@ -31,20 +31,27 @@ pub fn generator(input: &str) -> Input {
     }
 }
 
-fn checked_add_pos(v: Option<Point>, x: Point, y: Point) -> Option<Point> {
-    let (v0, v1) = v?;
-    let a = v0.checked_add(x.0)?.checked_sub(y.0)?;
-    let b = v1.checked_add(x.1)?.checked_sub(y.1)?;
+// this is a copy from feature(unsigned_signed_diff)
+pub const fn checked_signed_diff(lhs: usize, rhs: usize) -> Option<isize> {
+    let res = lhs.wrapping_sub(rhs) as isize;
+    let overflow = (lhs >= rhs) == (res < 0);
 
-    Some((a, b))
+    if !overflow {
+        Some(res)
+    } else {
+        None
+    }
 }
 
-fn generate_resonance(
-    size: Point,
-    iter: impl Iterator<Item = Option<Point>>,
-) -> impl Iterator<Item = Point> {
-    iter.map_while(|o| o)
-        .take_while(move |p| p.0 < size.0 && p.1 < size.1)
+fn checked_add_pos(v: Option<Point>, x: Point, y: Point, size: Point) -> Option<Point> {
+    pathfinding::utils::move_in_direction(
+        v?,
+        (
+            checked_signed_diff(x.0, y.0)?,
+            checked_signed_diff(x.1, y.1)?,
+        ),
+        size,
+    )
 }
 
 #[aoc(day8, part1)]
@@ -54,15 +61,8 @@ pub fn part1(Input { map, size }: &Input) -> usize {
         for x in pos.iter().combinations(2) {
             let (a, b) = (*x[0], *x[1]);
 
-            points.extend(generate_resonance(
-                *size,
-                iter::once(checked_add_pos(Some(a), a, b)),
-            ));
-
-            points.extend(generate_resonance(
-                *size,
-                iter::once(checked_add_pos(Some(b), b, a)),
-            ));
+            points.extend(iter::once(checked_add_pos(Some(a), a, b, *size)).map_while(|o| o));
+            points.extend(iter::once(checked_add_pos(Some(b), b, a, *size)).map_while(|o| o));
         }
     }
 
@@ -75,15 +75,8 @@ pub fn part2(Input { map, size }: &Input) -> usize {
     for pos in map.values() {
         for x in pos.iter().combinations(2) {
             let (a, b) = (*x[0], *x[1]);
-            points.extend(generate_resonance(
-                *size,
-                iterate(Some(b), |&v| checked_add_pos(v, b, a)),
-            ));
-
-            points.extend(generate_resonance(
-                *size,
-                iterate(Some(a), |&v| checked_add_pos(v, a, b)),
-            ));
+            points.extend(iterate(Some(b), |&v| checked_add_pos(v, b, a, *size)).map_while(|o| o));
+            points.extend(iterate(Some(a), |&v| checked_add_pos(v, a, b, *size)).map_while(|o| o));
         }
     }
 
