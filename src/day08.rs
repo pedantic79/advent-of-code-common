@@ -1,8 +1,8 @@
-use std::iter;
+use std::iter::successors;
 
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use aoc_runner_derive::{aoc, aoc_generator};
-use itertools::{iterate, Itertools};
+use itertools::Itertools;
 
 type Point = (usize, usize);
 
@@ -43,9 +43,9 @@ pub const fn checked_signed_diff(lhs: usize, rhs: usize) -> Option<isize> {
     }
 }
 
-fn checked_add_pos(v: Option<Point>, x: Point, y: Point, size: Point) -> Option<Point> {
+fn checked_add_pos(v: Point, x: Point, y: Point, size: Point) -> Option<Point> {
     pathfinding::utils::move_in_direction(
-        v?,
+        v,
         (
             checked_signed_diff(x.0, y.0)?,
             checked_signed_diff(x.1, y.1)?,
@@ -61,8 +61,8 @@ pub fn part1(Input { map, size }: &Input) -> usize {
         for x in pos.iter().combinations(2) {
             let (a, b) = (*x[0], *x[1]);
 
-            points.extend(iter::once(checked_add_pos(Some(a), a, b, *size)).map_while(|o| o));
-            points.extend(iter::once(checked_add_pos(Some(b), b, a, *size)).map_while(|o| o));
+            points.extend(checked_add_pos(a, a, b, *size).into_iter());
+            points.extend(checked_add_pos(b, b, a, *size).into_iter());
         }
     }
 
@@ -75,8 +75,8 @@ pub fn part2(Input { map, size }: &Input) -> usize {
     for pos in map.values() {
         for x in pos.iter().combinations(2) {
             let (a, b) = (*x[0], *x[1]);
-            points.extend(iterate(Some(b), |&v| checked_add_pos(v, b, a, *size)).map_while(|o| o));
-            points.extend(iterate(Some(a), |&v| checked_add_pos(v, a, b, *size)).map_while(|o| o));
+            points.extend(successors(Some(b), |&v| checked_add_pos(v, b, a, *size)));
+            points.extend(successors(Some(a), |&v| checked_add_pos(v, a, b, *size)));
         }
     }
 
