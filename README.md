@@ -18,6 +18,8 @@
   - [solution](src/day08.rs)
 - [Day 9: Disk Fragmenter](https://adventofcode.com/2024/day/9)
   - [solution](src/day09.rs)
+- [Day 10: Hoof It](https://adventofcode.com/2024/day/10)
+  - [solution](src/day10.rs)
 <!-- Insert before -->
 
 See:
