@@ -1,3 +1,5 @@
+use std::{iter, mem};
+
 use ahash::{HashMap, HashMapExt};
 use aoc_runner_derive::{aoc, aoc_generator};
 use num::Integer;
@@ -9,36 +11,39 @@ pub fn generator(input: &str) -> Vec<usize> {
     parse_split(input, ' ')
 }
 
-fn rule(input: usize) -> (usize, Option<usize>) {
-    if input == 0 {
-        (1, None)
+fn one_or_two_elements<T>(first: T, second: Option<T>) -> impl Iterator<Item = T> {
+    iter::once(first).chain(iter::once(second).flatten())
+}
+
+fn rule2(stone: usize) -> impl Iterator<Item = usize> {
+    if stone == 0 {
+        one_or_two_elements(1, None)
     } else {
-        let s = format!("{}", input);
+        let s = format!("{}", stone);
         if s.len().is_even() {
             let mid = s.len() / 2;
             let (l, r) = s.split_at(mid);
-            (l.parse().unwrap(), Some(r.parse().unwrap()))
+            one_or_two_elements(l.parse().unwrap(), Some(r.parse().unwrap()))
         } else {
-            (input * 2024, None)
+            one_or_two_elements(stone * 2024, None)
         }
     }
 }
 
-fn solve<const T: usize>(inputs: &[usize]) -> usize {
-    let mut data: HashMap<usize, usize> = HashMap::new();
-    for &i in inputs {
-        data.insert(i, 1);
+fn solve<const T: usize>(stones: &[usize]) -> usize {
+    let mut data = HashMap::new();
+    let mut counts = HashMap::new();
+    for &stone in stones {
+        data.insert(stone, 1);
     }
     for _ in 0..T {
-        let mut counts = HashMap::new();
-        for (&i, &local_count) in data.iter() {
-            let (a, b) = rule(i);
-            *counts.entry(a).or_insert(0) += local_count;
-            if let Some(b) = b {
-                *counts.entry(b).or_insert(0) += local_count;
+        for (&stone, &stone_count) in data.iter() {
+            for a in rule2(stone) {
+                *counts.entry(a).or_insert(0) += stone_count;
             }
         }
-        data = counts;
+        mem::swap(&mut data, &mut counts);
+        counts.clear();
     }
 
     data.values().sum()
@@ -74,7 +79,7 @@ mod tests {
 
     #[test]
     pub fn part2_test() {
-        // assert_eq!(part2(&generator(SAMPLE)), 336);
+        assert_eq!(part2(&generator(SAMPLE)), 65601038650482);
     }
 
     mod regression {
