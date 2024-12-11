@@ -1,75 +1,57 @@
-use std::mem;
-
 use ahash::{HashMap, HashMapExt};
 use aoc_runner_derive::{aoc, aoc_generator};
 use num::Integer;
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct Object {}
-
-type INT = usize;
+use crate::common::parse::parse_split;
 
 #[aoc_generator(day11)]
-pub fn generator(input: &str) -> Vec<String> {
-    input.split(' ').map(|s| s.to_string()).collect()
+pub fn generator(input: &str) -> Vec<usize> {
+    parse_split(input, ' ')
 }
 
-fn rule(input: &str) -> (String, Option<String>) {
-    if input == "0" {
-        ("1".into(), None)
-    } else if input.len().is_even() {
-        let mid = input.len() / 2;
-        let r = input[mid..].trim_start_matches('0');
-
-        (
-            input[0..mid].to_string(),
-            Some((if !r.is_empty() { r } else { "0" }).into()),
-        )
+fn rule(input: usize) -> (usize, Option<usize>) {
+    if input == 0 {
+        (1, None)
     } else {
-        let i: INT = input.parse().unwrap();
-        (format!("{}", i * 2024), None)
-    }
-}
-
-#[aoc(day11, part1)]
-pub fn part1(inputs: &[String]) -> usize {
-    let mut inputs = inputs.to_vec();
-    let mut other = Vec::new();
-    for _ in 0..25 {
-        for i in &inputs {
-            let (a, b) = rule(i);
-            other.push(a);
-            if let Some(b) = b {
-                other.push(b);
-            }
+        let s = format!("{}", input);
+        if s.len().is_even() {
+            let mid = s.len() / 2;
+            let (l, r) = s.split_at(mid);
+            (l.parse().unwrap(), Some(r.parse().unwrap()))
+        } else {
+            (input * 2024, None)
         }
-        mem::swap(&mut inputs, &mut other);
-        other.clear();
     }
-
-    inputs.len()
 }
 
-#[aoc(day11, part2)]
-pub fn part2(inputs: &[String]) -> usize {
-    let mut data: HashMap<String, usize> = HashMap::new();
-    for i in inputs {
-        data.insert(i.to_string(), 1);
+fn solve<const T: usize>(inputs: &[usize]) -> usize {
+    let mut data: HashMap<usize, usize> = HashMap::new();
+    for &i in inputs {
+        data.insert(i, 1);
     }
-    for _ in 0..75 {
+    for _ in 0..T {
         let mut counts = HashMap::new();
-        for (i, local_count) in data.iter() {
+        for (&i, &local_count) in data.iter() {
             let (a, b) = rule(i);
-            *counts.entry(a.clone()).or_insert(0) += local_count;
+            *counts.entry(a).or_insert(0) += local_count;
             if let Some(b) = b {
-                assert!(!b.is_empty());
-                *counts.entry(b.clone()).or_insert(0) += local_count;
+                *counts.entry(b).or_insert(0) += local_count;
             }
         }
         data = counts;
     }
 
     data.values().sum()
+}
+
+#[aoc(day11, part1)]
+pub fn part1(inputs: &[usize]) -> usize {
+    solve::<25>(inputs)
+}
+
+#[aoc(day11, part2)]
+pub fn part2(inputs: &[usize]) -> usize {
+    solve::<75>(inputs)
 }
 
 #[cfg(test)]
