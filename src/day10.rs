@@ -1,4 +1,3 @@
-use ahash::{HashSet, HashSetExt};
 use aoc_runner_derive::{aoc, aoc_generator};
 use pathfinding::prelude::{count_paths, dfs_reach};
 
@@ -35,16 +34,12 @@ pub fn part1(inputs: &[Vec<u8>]) -> usize {
     for (r, row) in inputs.iter().enumerate() {
         for (c, &cell) in row.iter().enumerate() {
             if cell == 0 {
-                let mut endpoints = HashSet::new();
-
-                endpoints.extend(
-                    dfs_reach((r, c), |&curr| {
-                        neighbors(curr.0, curr.1, r_max, c_max)
-                            .filter(move |&(r, c)| inputs[r][c] == inputs[curr.0][curr.1] + 1)
-                    })
-                    .filter(|x| inputs[x.0][x.1] == 9),
-                );
-                count += endpoints.len();
+                count += dfs_reach((r, c), |&curr| {
+                    neighbors(curr.0, curr.1, r_max, c_max)
+                        .filter(move |&(r, c)| inputs[r][c] == inputs[curr.0][curr.1] + 1)
+                })
+                .filter(|x| inputs[x.0][x.1] == 9)
+                .count();
             }
         }
     }
