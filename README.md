@@ -20,6 +20,8 @@
   - [solution](src/day09.rs)
 - [Day 10: Hoof It](https://adventofcode.com/2024/day/10)
   - [solution](src/day10.rs)
+- [Day 11: Plutonian Pebbles](https://adventofcode.com/2024/day/11)
+  - [solution](src/day11.rs)
 <!-- Insert before -->
 
 See:
