@@ -22,6 +22,8 @@
   - [solution](src/day10.rs)
 - [Day 11: Plutonian Pebbles](https://adventofcode.com/2024/day/11)
   - [solution](src/day11.rs)
+- [Day 12: Garden Groups](https://adventofcode.com/2024/day/12)
+  - [solution](src/day12.rs)
 <!-- Insert before -->
 
 See:
