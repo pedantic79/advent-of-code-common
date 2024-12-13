@@ -24,6 +24,8 @@
   - [solution](src/day11.rs)
 - [Day 12: Garden Groups](https://adventofcode.com/2024/day/12)
   - [solution](src/day12.rs)
+- [Day 13: Claw Contraption](https://adventofcode.com/2024/day/13)
+  - [solution](src/day13.rs)
 <!-- Insert before -->
 
 See:
