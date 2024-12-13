@@ -1,6 +1,5 @@
 use aoc_runner_derive::{aoc, aoc_generator};
 use nom::{bytes::complete::tag, character::complete::newline, IResult};
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 use crate::common::nom::nom_i64;
 
@@ -75,13 +74,13 @@ pub fn generator(input: &str) -> Vec<Machine> {
 
 #[aoc(day13, part1)]
 pub fn part1(inputs: &[Machine]) -> i64 {
-    inputs.par_iter().map(|m| m.find_cheapest::<0>()).sum()
+    inputs.iter().map(|m| m.find_cheapest::<0>()).sum()
 }
 
 #[aoc(day13, part2)]
 pub fn part2(inputs: &[Machine]) -> i64 {
     inputs
-        .par_iter()
+        .iter()
         .map(|m| m.find_cheapest::<10000000000000>())
         .sum()
 }
