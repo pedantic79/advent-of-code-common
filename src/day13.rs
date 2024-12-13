@@ -12,29 +12,7 @@ pub struct Machine {
 }
 
 impl Machine {
-    fn find_cheapest(&self) -> Option<i64> {
-        pathfinding::prelude::dijkstra(
-            &(0, 0),
-            |&(y, x)| {
-                let mut res = Vec::new();
-                let a = (y + self.a.0, x + self.a.1);
-                let b = (y + self.b.0, x + self.b.1);
-
-                if a.0 <= self.prize.0 && a.1 <= self.prize.1 {
-                    res.push((a, 3));
-                }
-
-                if b.0 <= self.prize.0 && b.1 <= self.prize.1 {
-                    res.push((b, 1));
-                }
-                res
-            },
-            |&(y, x)| y == self.prize.0 && x == self.prize.1,
-        )
-        .map(|(_, cost)| cost)
-    }
-
-    fn part2<const FUDGE: i64>(&self) -> i64 {
+    fn find_cheapest<const FUDGE: i64>(&self) -> i64 {
         let (p0, p1) = (self.prize.0 + FUDGE, self.prize.1 + FUDGE);
 
         let b = (p0 * self.a.1 - p1 * self.a.0) / (self.b.0 * self.a.1 - self.b.1 * self.a.0);
@@ -85,15 +63,15 @@ pub fn generator(input: &str) -> Vec<Machine> {
 
 #[aoc(day13, part1)]
 pub fn part1(inputs: &[Machine]) -> i64 {
-    inputs
-        .iter()
-        .map(|m| m.find_cheapest().unwrap_or_default())
-        .sum()
+    inputs.par_iter().map(|m| m.find_cheapest::<0>()).sum()
 }
 
 #[aoc(day13, part2)]
 pub fn part2(inputs: &[Machine]) -> i64 {
-    inputs.par_iter().map(|m| m.part2::<10000000000000>()).sum()
+    inputs
+        .par_iter()
+        .map(|m| m.find_cheapest::<10000000000000>())
+        .sum()
 }
 
 #[cfg(test)]
