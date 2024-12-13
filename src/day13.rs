@@ -12,16 +12,28 @@ pub struct Machine {
 }
 
 impl Machine {
-    fn find_cheapest<const FUDGE: i64>(&self) -> i64 {
-        let (p0, p1) = (self.prize.0 + FUDGE, self.prize.1 + FUDGE);
-
-        let b = (p0 * self.a.1 - p1 * self.a.0) / (self.b.0 * self.a.1 - self.b.1 * self.a.0);
-        let a = (p1 - b * self.b.1) / self.a.1;
-        if (self.a.1 * a + self.b.1 * b, self.a.0 * a + self.b.0 * b) == (p1, p0) {
-            a * 3 + b
-        } else {
-            0
+    fn solve_linear_system(a: (i64, i64), b: (i64, i64), p: (i64, i64)) -> Option<(i64, i64)> {
+        let det = a.0 * b.1 - a.1 * b.0;
+        if det == 0 {
+            return None;
         }
+
+        let aa = (p.0 * b.1 - p.1 * b.0) / det;
+        let bb = (p.1 * a.0 - p.0 * a.1) / det;
+
+        if a.0 * aa + b.0 * bb == p.0 && a.1 * aa + b.1 * bb == p.1 {
+            Some((aa, bb))
+        } else {
+            None
+        }
+    }
+
+    fn find_cheapest<const FUDGE: i64>(&self) -> i64 {
+        let p = (self.prize.0 + FUDGE, self.prize.1 + FUDGE);
+
+        Self::solve_linear_system(self.a, self.b, p)
+            .map(|(a, b)| 3 * a + b)
+            .unwrap_or_default()
     }
 }
 
