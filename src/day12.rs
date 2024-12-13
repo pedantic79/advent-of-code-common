@@ -74,34 +74,28 @@ where
 
     for (r, row) in inputs.iter().enumerate() {
         for (c, &cell) in row.iter().enumerate() {
-            if seen.contains(&(r, c)) {
+            if !seen.insert((r, c)) {
                 continue;
             }
-            seen.insert((r, c));
 
             let (mut area, mut perim) = (1, check(inputs, r, c, cell));
             let mut queue: VecDeque<(usize, usize)> = DIRECTIONS_4
                 .iter()
                 .filter_map(|&delta| move_in_direction((r, c), delta, (r_max, c_max)))
-                .filter(|delta| inputs.get(delta.0).and_then(|row| row.get(delta.1)) == Some(&cell))
+                .filter(|&(y, x)| get(inputs, y, x) == Some(cell))
                 .collect();
 
             while let Some((y, x)) = queue.pop_front() {
-                if seen.contains(&(y, x)) {
+                if !seen.insert((y, x)) {
                     continue;
                 }
 
-                seen.insert((y, x));
                 area += 1;
                 perim += check(inputs, y, x, cell);
-                queue.extend(
-                    DIRECTIONS_4
-                        .iter()
-                        .filter_map(|&delta| move_in_direction((y, x), delta, (r_max, c_max)))
-                        .filter(|delta| {
-                            inputs.get(delta.0).and_then(|row| row.get(delta.1)) == Some(&cell)
-                        }),
-                )
+                queue.extend(DIRECTIONS_4.iter().filter_map(|&delta| {
+                    move_in_direction((y, x), delta, (r_max, c_max))
+                        .filter(|&(y, x)| get(inputs, y, x) == Some(cell))
+                }))
             }
             count += area * perim;
         }
