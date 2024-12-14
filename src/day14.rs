@@ -1,8 +1,10 @@
 use aoc_runner_derive::{aoc, aoc_generator};
 use nom::{bytes::complete::tag, sequence::separated_pair, IResult};
-use pathfinding::{matrix::directions::DIRECTIONS_4, utils::move_in_direction};
 
-use crate::common::nom::{nom_isize, nom_lines, nom_usize, process_input};
+use crate::common::{
+    nom::{nom_isize, nom_lines, nom_usize, process_input},
+    utils::chinese_remainder_theorem,
+};
 
 const HEIGHT: usize = 103;
 const WIDTH: usize = 101;
@@ -28,19 +30,20 @@ fn parse_robot(s: &str) -> IResult<&str, Robot> {
 }
 
 impl Robot {
-    fn simulate(&mut self, times: usize, max: (usize, usize)) {
+    fn simulate_coord(p: usize, v: isize, times: usize, max: usize) -> usize {
         let times = times as isize;
-        let max = (max.0 as isize, max.1 as isize);
-        let mut p = (self.pos.0 as isize, self.pos.1 as isize);
+        let max = max as isize;
+        let mut p = p as isize;
+        p += v * times;
+        p = p.rem_euclid(max);
+        p.try_into().unwrap()
+    }
 
-        p.0 += self.vol.0 * times;
-        p.1 += self.vol.1 * times;
-
-        p.0 = p.0.rem_euclid(max.0);
-        p.1 = p.1.rem_euclid(max.1);
-
-        let p = (p.0.try_into().unwrap(), p.1.try_into().unwrap());
-        self.pos = p
+    fn simulate(&mut self, times: usize, max: (usize, usize)) {
+        self.pos = (
+            Self::simulate_coord(self.pos.0, self.vol.0, times, max.0),
+            Self::simulate_coord(self.pos.1, self.vol.1, times, max.1),
+        )
     }
 }
 
@@ -79,50 +82,48 @@ pub fn part1(inputs: &[Robot]) -> usize {
 
 #[aoc(day14, part2)]
 pub fn part2(inputs: &[Robot]) -> usize {
-    const STEP: usize = HEIGHT * 2;
+    const W: isize = WIDTH as isize;
+    const H: isize = HEIGHT as isize;
+
     let mut robots = inputs.to_vec();
-    let mut count: usize = 153;
+    let mut fpos = Vec::with_capacity(robots.len());
 
-    robots.iter_mut().for_each(|r| {
-        r.simulate(count, (HEIGHT, WIDTH));
-    });
+    // Simulate the robot coordinates independently from 1 to the max of the coordinate
+    // storing the coordinates as f64 in fpos
+    // then calculate the statistical variance of all the positions
+    // find the number of steps for the minimal variance
+    let min_xstep = (1..=W)
+        .map(|i| {
+            fpos.clear();
+            robots.iter_mut().for_each(|r| {
+                r.pos.1 = Robot::simulate_coord(r.pos.1, r.vol.1, 1, WIDTH);
+                fpos.push(r.pos.1 as f64);
+            });
 
-    while count < HEIGHT * WIDTH {
-        count += STEP;
-        let mut grid = [[b'.'; WIDTH]; HEIGHT];
-        robots.iter_mut().for_each(|r| {
-            r.simulate(STEP, (HEIGHT, WIDTH));
-            grid[r.pos.0][r.pos.1] = b'#';
-        });
+            (i, statistical::variance(&fpos, None))
+        })
+        .reduce(|min, x| if x.1 < min.1 { x } else { min })
+        .unwrap()
+        .0;
 
-        let mut connected = 0;
-        for (r, row) in grid.iter().enumerate() {
-            for (c, _) in row.iter().enumerate() {
-                if grid[r][c] == b'#'
-                    && DIRECTIONS_4
-                        .iter()
-                        .filter(|&&dir| {
-                            move_in_direction((r, c), dir, (HEIGHT, WIDTH))
-                                .and_then(|(x, y)| grid.get(x).and_then(|row| row.get(y)))
-                                == Some(&b'#')
-                        })
-                        .count()
-                        == 4
-                {
-                    connected += 1;
-                    if connected > 10 {
-                        // for row in grid.iter() {
-                        //     println!("{}", unsafe { std::str::from_utf8_unchecked(&row[..]) });
-                        // }
-                        // println!("{count}\n\n");
-                        return count;
-                    }
-                }
-            }
-        }
-    }
+    // repeat for other coordinate
+    let min_ystep = (1..=H)
+        .map(|i| {
+            fpos.clear();
+            robots.iter_mut().for_each(|r| {
+                r.pos.0 = Robot::simulate_coord(r.pos.0, r.vol.0, 1, HEIGHT);
+                fpos.push(r.pos.0 as f64);
+            });
 
-    0
+            (i, statistical::variance(&fpos, None))
+        })
+        .reduce(|min, x| if x.1 < min.1 { x } else { min })
+        .unwrap()
+        .0;
+
+    // chinese remainder theorem
+    let ans = chinese_remainder_theorem([(min_xstep, W), (min_ystep, H)].into_iter());
+    ans.try_into().unwrap()
 }
 
 #[cfg(test)]

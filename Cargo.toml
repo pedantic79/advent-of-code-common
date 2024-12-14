@@ -28,6 +28,7 @@ smallstr = "0.3.0"
 polyfit-rs = "0.2.1"
 petgraph = "0.6.4"
 regex = "1"
+statistical = "1.0.0"
 
 [profile.release]
 lto = "thin"
