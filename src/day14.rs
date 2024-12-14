@@ -18,11 +18,17 @@ const WIDTH_SAMPLE: isize = 11;
 
 fn parse_robot(s: &str) -> IResult<&str, Robot> {
     let (s, _) = tag("p=")(s)?;
-    let (s, pos) = separated_pair(nom_isize, tag(","), nom_isize)(s)?;
+    let (s, (px, py)) = separated_pair(nom_isize, tag(","), nom_isize)(s)?;
     let (s, _) = tag(" v=")(s)?;
-    let (s, vol) = separated_pair(nom_isize, tag(","), nom_isize)(s)?;
+    let (s, (vx, vy)) = separated_pair(nom_isize, tag(","), nom_isize)(s)?;
 
-    Ok((s, Robot { pos, vol }))
+    Ok((
+        s,
+        Robot {
+            pos: (py, px),
+            vol: (vy, vx),
+        },
+    ))
 }
 
 impl Robot {
@@ -55,7 +61,7 @@ pub fn part1(inputs: &[Robot]) -> usize {
 
     robots
         .iter_mut()
-        .for_each(|r| r.simulate(100, (WIDTH, HEIGHT)));
+        .for_each(|r| r.simulate(100, (HEIGHT, WIDTH)));
 
     const WIDTH_MID: isize = WIDTH / 2;
     const HEIGHT_MID: isize = HEIGHT / 2;
@@ -66,10 +72,10 @@ pub fn part1(inputs: &[Robot]) -> usize {
     for r in robots.iter() {
         #[allow(non_contiguous_range_endpoints)]
         match r.pos {
-            (0..WIDTH_MID, 0..HEIGHT_MID) => counts[0] += 1,
-            (0..WIDTH_MID, HEIGHT_MID1..HEIGHT) => counts[1] += 1,
-            (WIDTH_MID1..WIDTH, HEIGHT_MID1..HEIGHT) => counts[2] += 1,
-            (WIDTH_MID1..WIDTH, 0..HEIGHT) => counts[3] += 1,
+            (0..HEIGHT_MID, 0..WIDTH_MID) => counts[0] += 1,
+            (HEIGHT_MID1..HEIGHT, 0..WIDTH_MID) => counts[1] += 1,
+            (HEIGHT_MID1..HEIGHT, WIDTH_MID1..WIDTH) => counts[2] += 1,
+            (0..HEIGHT, WIDTH_MID1..WIDTH) => counts[3] += 1,
             _ => {}
         }
     }
@@ -86,9 +92,9 @@ pub fn part2(inputs: &[Robot]) -> usize {
 
     loop {
         count += 1;
-        let mut grid = [[b'.'; HEIGHT as usize]; WIDTH as usize];
+        let mut grid = [[b'.'; WIDTH as usize]; HEIGHT as usize];
         robots.iter_mut().for_each(|r| {
-            r.simulate(1, (WIDTH, HEIGHT));
+            r.simulate(1, (HEIGHT, WIDTH));
             grid[r.pos.0 as usize][r.pos.1 as usize] = b'#';
         });
 
@@ -100,7 +106,7 @@ pub fn part2(inputs: &[Robot]) -> usize {
                     && DIRECTIONS_4
                         .iter()
                         .filter(|&&dir| {
-                            move_in_direction((r, c), dir, (WIDTH as usize, HEIGHT as usize))
+                            move_in_direction((r, c), dir, (HEIGHT as usize, WIDTH as usize))
                                 .and_then(|(x, y)| grid.get(x).and_then(|row| row.get(y)))
                                 == Some(&b'#')
                         })
@@ -113,10 +119,10 @@ pub fn part2(inputs: &[Robot]) -> usize {
         }
 
         if connected > 10 {
-            // for row in grid.iter() {
-            //     println!("{}", unsafe { std::str::from_utf8_unchecked(&row[..]) });
-            // }
-            // println!("{count}\n\n");
+            for row in grid.iter() {
+                println!("{}", unsafe { std::str::from_utf8_unchecked(&row[..]) });
+            }
+            println!("{count}\n\n");
             break count;
         }
 
