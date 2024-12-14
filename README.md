@@ -26,6 +26,8 @@
   - [solution](src/day12.rs)
 - [Day 13: Claw Contraption](https://adventofcode.com/2024/day/13)
   - [solution](src/day13.rs)
+- [Day 14: Restroom Redoubt](https://adventofcode.com/2024/day/14)
+  - [solution](src/day14.rs)
 <!-- Insert before -->
 
 See:
