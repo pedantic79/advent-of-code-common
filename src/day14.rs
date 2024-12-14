@@ -2,23 +2,19 @@ use aoc_runner_derive::{aoc, aoc_generator};
 use nom::{bytes::complete::tag, sequence::separated_pair, IResult};
 use pathfinding::{matrix::directions::DIRECTIONS_4, utils::move_in_direction};
 
-use crate::common::nom::{nom_isize, nom_lines, process_input};
+use crate::common::nom::{nom_isize, nom_lines, nom_usize, process_input};
 
+const HEIGHT: usize = 103;
+const WIDTH: usize = 101;
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Robot {
-    pos: (isize, isize),
+    pos: (usize, usize),
     vol: (isize, isize),
 }
 
-const HEIGHT_INPUT: isize = 103;
-const WIDTH_INPUT: isize = 101;
-
-const HEIGHT_SAMPLE: isize = 7;
-const WIDTH_SAMPLE: isize = 11;
-
 fn parse_robot(s: &str) -> IResult<&str, Robot> {
     let (s, _) = tag("p=")(s)?;
-    let (s, (px, py)) = separated_pair(nom_isize, tag(","), nom_isize)(s)?;
+    let (s, (px, py)) = separated_pair(nom_usize, tag(","), nom_usize)(s)?;
     let (s, _) = tag(" v=")(s)?;
     let (s, (vx, vy)) = separated_pair(nom_isize, tag(","), nom_isize)(s)?;
 
@@ -32,16 +28,19 @@ fn parse_robot(s: &str) -> IResult<&str, Robot> {
 }
 
 impl Robot {
-    fn simulate(&mut self, times: isize, max: (isize, isize)) {
-        let mut p = (
-            self.pos.0 + self.vol.0 * times,
-            self.pos.1 + self.vol.1 * times,
-        );
+    fn simulate(&mut self, times: usize, max: (usize, usize)) {
+        let times = times as isize;
+        let max = (max.0 as isize, max.1 as isize);
+        let mut p = (self.pos.0 as isize, self.pos.1 as isize);
+
+        p.0 += self.vol.0 * times;
+        p.1 += self.vol.1 * times;
 
         p.0 = p.0.rem_euclid(max.0);
         p.1 = p.1.rem_euclid(max.1);
 
-        self.pos = p;
+        let p = (p.0.try_into().unwrap(), p.1.try_into().unwrap());
+        self.pos = p
     }
 }
 
@@ -52,21 +51,16 @@ pub fn generator(input: &str) -> Vec<Robot> {
 
 #[aoc(day14, part1)]
 pub fn part1(inputs: &[Robot]) -> usize {
-    // const WIDTH: isize = WIDTH_SAMPLE;
-    // const HEIGHT: isize = HEIGHT_SAMPLE;
-
-    const WIDTH: isize = WIDTH_INPUT;
-    const HEIGHT: isize = HEIGHT_INPUT;
     let mut robots = inputs.to_vec();
 
     robots
         .iter_mut()
         .for_each(|r| r.simulate(100, (HEIGHT, WIDTH)));
 
-    const WIDTH_MID: isize = WIDTH / 2;
-    const HEIGHT_MID: isize = HEIGHT / 2;
-    const WIDTH_MID1: isize = WIDTH_MID + 1;
-    const HEIGHT_MID1: isize = HEIGHT_MID + 1;
+    const WIDTH_MID: usize = WIDTH / 2;
+    const HEIGHT_MID: usize = HEIGHT / 2;
+    const WIDTH_MID1: usize = WIDTH_MID + 1;
+    const HEIGHT_MID1: usize = HEIGHT_MID + 1;
 
     let mut counts = [0; 4];
     for r in robots.iter() {
@@ -85,28 +79,30 @@ pub fn part1(inputs: &[Robot]) -> usize {
 
 #[aoc(day14, part2)]
 pub fn part2(inputs: &[Robot]) -> usize {
-    const WIDTH: isize = WIDTH_INPUT;
-    const HEIGHT: isize = HEIGHT_INPUT;
+    const STEP: usize = HEIGHT * 2;
     let mut robots = inputs.to_vec();
-    let mut count: usize = 0;
+    let mut count: usize = 153;
 
-    loop {
-        count += 1;
-        let mut grid = [[b'.'; WIDTH as usize]; HEIGHT as usize];
+    robots.iter_mut().for_each(|r| {
+        r.simulate(count, (HEIGHT, WIDTH));
+    });
+
+    while count < HEIGHT * WIDTH {
+        count += STEP;
+        let mut grid = [[b'.'; WIDTH]; HEIGHT];
         robots.iter_mut().for_each(|r| {
-            r.simulate(1, (HEIGHT, WIDTH));
-            grid[r.pos.0 as usize][r.pos.1 as usize] = b'#';
+            r.simulate(STEP, (HEIGHT, WIDTH));
+            grid[r.pos.0][r.pos.1] = b'#';
         });
 
         let mut connected = 0;
-
         for (r, row) in grid.iter().enumerate() {
             for (c, _) in row.iter().enumerate() {
                 if grid[r][c] == b'#'
                     && DIRECTIONS_4
                         .iter()
                         .filter(|&&dir| {
-                            move_in_direction((r, c), dir, (HEIGHT as usize, WIDTH as usize))
+                            move_in_direction((r, c), dir, (HEIGHT, WIDTH))
                                 .and_then(|(x, y)| grid.get(x).and_then(|row| row.get(y)))
                                 == Some(&b'#')
                         })
@@ -114,22 +110,19 @@ pub fn part2(inputs: &[Robot]) -> usize {
                         == 4
                 {
                     connected += 1;
+                    if connected > 10 {
+                        // for row in grid.iter() {
+                        //     println!("{}", unsafe { std::str::from_utf8_unchecked(&row[..]) });
+                        // }
+                        // println!("{count}\n\n");
+                        return count;
+                    }
                 }
             }
         }
-
-        if connected > 10 {
-            for row in grid.iter() {
-                println!("{}", unsafe { std::str::from_utf8_unchecked(&row[..]) });
-            }
-            println!("{count}\n\n");
-            break count;
-        }
-
-        if count > 50000 {
-            break 0;
-        }
     }
+
+    0
 }
 
 #[cfg(test)]
