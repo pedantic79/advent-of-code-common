@@ -1,24 +1,14 @@
 use std::fmt;
 
-use ahash::{HashMap, HashMapExt};
 use aoc_runner_derive::{aoc, aoc_generator};
 use pathfinding::{matrix::directions, utils::move_in_direction};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Input {
-    warehouse: HashMap<(usize, usize), Block>,
+    warehouse: Vec<Vec<u8>>,
     robot_pos: (usize, usize),
     moves: Option<Vec<(isize, isize)>>,
     dim: (usize, usize),
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-enum Block {
-    Wall,
-    Box,
-    LBox,
-    RBox,
-    Robot,
 }
 
 #[allow(dead_code)]
@@ -34,22 +24,9 @@ fn dir_to_char(dir: (isize, isize)) -> char {
 
 impl fmt::Display for Input {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for r in 0..self.dim.0 {
-            for c in 0..self.dim.1 {
-                let ch = if let Some(block) = self.warehouse.get(&(r, c)) {
-                    match block {
-                        Block::Wall => '#',
-                        Block::Box => 'O',
-                        Block::Robot => '@',
-                        Block::LBox => '[',
-                        Block::RBox => ']',
-                    }
-                } else {
-                    '.'
-                };
-                write!(f, "{ch}")?;
-            }
-            writeln!(f)?;
+        for row in self.warehouse.iter() {
+            // SAFETY: We only use ASCII characters
+            writeln!(f, "{}", unsafe { std::str::from_utf8_unchecked(row) })?;
         }
 
         Ok(())
@@ -63,25 +40,42 @@ impl Input {
         self.moves.take().expect("moves already taken")
     }
 
+    fn warehouse_get(&self, (r, c): (usize, usize)) -> Option<u8> {
+        self.warehouse.get(r)?.get(c).copied()
+    }
+
+    fn calculate_gps(&self, block: u8) -> usize {
+        self.warehouse
+            .iter()
+            .enumerate()
+            .map(|(r, row)| {
+                row.iter()
+                    .enumerate()
+                    .map(|(c, &b)| if b == block { r * 100 + c } else { 0 })
+                    .sum::<usize>()
+            })
+            .sum()
+    }
+
     fn widen_warehouse(&self) -> Self {
-        let mut warehouse = HashMap::with_capacity(self.warehouse.len() * 2 - 1);
-        for r in 0..self.dim.0 {
-            for c in 0..self.dim.1 {
-                if let Some(&block) = self.warehouse.get(&(r, c)) {
-                    match block {
-                        Block::Wall => {
-                            warehouse.insert((r, c * 2), Block::Wall);
-                            warehouse.insert((r, c * 2 + 1), Block::Wall);
-                        }
-                        Block::Box => {
-                            warehouse.insert((r, c * 2), Block::LBox);
-                            warehouse.insert((r, c * 2 + 1), Block::RBox);
-                        }
-                        Block::Robot => {
-                            warehouse.insert((r, c * 2), Block::Robot);
-                        }
-                        _ => panic!("can't pass expanded input"),
+        let mut warehouse = vec![vec![b'.'; self.dim.1 * 2]; self.dim.0];
+
+        for (r, row) in self.warehouse.iter().enumerate() {
+            for (c, block) in row.iter().enumerate() {
+                match block {
+                    b'#' => {
+                        warehouse[r][c * 2] = b'#';
+                        warehouse[r][c * 2 + 1] = b'#';
                     }
+                    b'O' => {
+                        warehouse[r][c * 2] = b'[';
+                        warehouse[r][c * 2 + 1] = b']';
+                    }
+                    b'@' => {
+                        warehouse[r][c * 2] = b'@';
+                    }
+                    b'.' => {}
+                    _ => panic!("can't pass expanded input"),
                 }
             }
         }
@@ -96,16 +90,17 @@ impl Input {
 
     /// Swaps the `pos` and `new_pos`, if `sim_only` is true, then we won't modify the warehouse.
     fn raw_move_block(&mut self, pos: (usize, usize), new_pos: (usize, usize), sim_only: bool) {
-        assert!(self.warehouse.contains_key(&pos));
-        assert!(!self.warehouse.contains_key(&new_pos));
+        assert_ne!(self.warehouse_get(pos), Some(b'.'));
+        assert_ne!(self.warehouse_get(pos), Some(b'#'));
+        assert_eq!(self.warehouse_get(new_pos), Some(b'.'));
 
         if sim_only {
             return;
         }
 
-        if let Some(block) = self.warehouse.remove(&pos) {
-            self.warehouse.insert(new_pos, block);
-        }
+        let temp = self.warehouse_get(pos).unwrap();
+        self.warehouse[pos.0][pos.1] = self.warehouse[new_pos.0][new_pos.1];
+        self.warehouse[new_pos.0][new_pos.1] = temp;
     }
 
     /// Moves a block at `pos` in the direction `dir`. If `sim_only` is true then
@@ -120,39 +115,39 @@ impl Input {
         sim_only: bool, // if true, this doesn't move any blocks
     ) -> Option<(usize, usize)> {
         let target_pos = move_in_direction(pos, dir, self.dim)?;
-        let target_block = self.warehouse.get(&target_pos).copied();
+        let target_block = self
+            .warehouse_get(target_pos)
+            .expect("warehouse get was out of bounds");
 
         match target_block {
-            None => {
+            b'.' => {
                 self.raw_move_block(pos, target_pos, sim_only);
             }
-            Some(Block::Wall) => return None,
-            Some(Block::Robot) => {
-                panic!("you're not supposed to move a robot")
-            }
-            Some(Block::Box) => {
+            b'#' => return None,
+            b'@' => panic!("you're not supposed to move a robot"),
+            b'O' => {
                 self.move_block(target_pos, dir, sim_only)?;
                 self.raw_move_block(pos, target_pos, sim_only);
             }
-            Some(Block::LBox) | Some(Block::RBox) => {
+            b'[' | b']' => {
                 if dir == directions::E || dir == directions::W {
                     // treat this like part1
                     self.move_block(target_pos, dir, sim_only)?;
                     self.raw_move_block(pos, target_pos, sim_only);
                 } else {
                     // Get the direction and expected_linked_block based on the target_block we're looking for
-                    let (direction, expected_linked_block) = if target_block == Some(Block::LBox) {
-                        (directions::E, Block::RBox)
+                    let (direction, expected_linked_block) = if target_block == b'[' {
+                        (directions::E, b']')
                     } else {
-                        (directions::W, Block::LBox)
+                        (directions::W, b'[')
                     };
 
                     // get the linked_block and linked_block_pos of our Box
-                    let linked_block_pos =
-                        move_in_direction(target_pos, direction, self.dim).unwrap();
-                    let linked_block = self.warehouse.get(&linked_block_pos).copied();
+                    let linked_block_pos = move_in_direction(target_pos, direction, self.dim)
+                        .expect("can't find linked block");
+                    let linked_block = self.warehouse_get(linked_block_pos);
 
-                    // the position to our left or right should be match expected_linked_block
+                    // the position to our left or right should match expected_linked_block
                     assert_eq!(linked_block, Some(expected_linked_block));
 
                     // try to move the object both blocks up, if either fails we will exit quickly
@@ -165,10 +160,11 @@ impl Input {
                         self.move_block(linked_block_pos, dir, false)?;
 
                         // only move our current target_block, the target_block will be moved through recursion
-                        self.raw_move_block(pos, target_pos, sim_only);
+                        self.raw_move_block(pos, target_pos, false);
                     }
                 }
             }
+            _ => panic!("unknown block"),
         }
         Some(target_pos)
     }
@@ -177,31 +173,17 @@ impl Input {
 #[aoc_generator(day15)]
 pub fn generator(input: &str) -> Input {
     let (warehouse, moves) = input.split_once("\n\n").unwrap();
-    let mut hm = HashMap::new();
+    let mut wh = Vec::new();
     let mut robot_pos = (0, 0);
-    let mut dim = (0, 0);
 
     for (r, line) in warehouse.lines().enumerate() {
-        for (c, cell) in line.bytes().enumerate() {
-            match cell {
-                b'#' => {
-                    hm.insert((r, c), Block::Wall);
-                }
-                b'O' => {
-                    hm.insert((r, c), Block::Box);
-                }
-                b'@' => {
-                    robot_pos = (r, c);
-                    hm.insert((r, c), Block::Robot);
-                }
-                _ => {}
-            }
-            dim.1 = c;
+        if let Some(c) = line.bytes().position(|b| b == b'@') {
+            robot_pos = (r, c);
         }
-        dim.0 = r;
+        wh.push(line.to_string().into_bytes());
     }
-    dim.0 += 1;
-    dim.1 += 1;
+
+    let dim = (wh.len(), wh[0].len());
 
     let moves = moves
         .bytes()
@@ -216,7 +198,7 @@ pub fn generator(input: &str) -> Input {
         .collect();
 
     Input {
-        warehouse: hm,
+        warehouse: wh,
         robot_pos,
         moves: Some(moves),
         dim,
@@ -236,21 +218,11 @@ pub fn part1(inputs: &Input) -> usize {
         // print!("{}[2J", 27 as char);
         // println!("Move {:?}:", dir_to_char(m));
         // println!("{}\n", inputs);
-        // std::thread::sleep(std::time::Duration::from_millis(100));
+        // std::thread::sleep(std::time::Duration::from_millis(250));
     }
 
     // println!("{}\n", inputs);
-    inputs
-        .warehouse
-        .iter()
-        .map(|(pos, block)| {
-            if block == &Block::Box {
-                pos.0 * 100 + pos.1
-            } else {
-                0
-            }
-        })
-        .sum()
+    inputs.calculate_gps(b'O')
 }
 
 #[aoc(day15, part2)]
@@ -270,17 +242,7 @@ pub fn part2(inputs: &Input) -> usize {
     }
 
     // println!("{}\n", inputs);
-    inputs
-        .warehouse
-        .iter()
-        .map(|(pos, block)| {
-            if block == &Block::LBox {
-                pos.0 * 100 + pos.1
-            } else {
-                0
-            }
-        })
-        .sum()
+    inputs.calculate_gps(b'[')
 }
 
 #[cfg(test)]
