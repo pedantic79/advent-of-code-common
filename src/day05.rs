@@ -1,14 +1,18 @@
 use std::cmp::Ordering;
 
-use ahash::HashSet;
 use aoc_runner_derive::{aoc, aoc_generator};
+use bit_set::BitSet;
 
 use crate::common::parse::{parse_split, parse_split_once};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Object {
-    rules: HashSet<(usize, usize)>,
+    rules: BitSet,
     pages: Vec<Vec<usize>>,
+}
+
+fn pair(a: usize, b: usize) -> usize {
+    a * 100 + b
 }
 
 #[aoc_generator(day5)]
@@ -17,15 +21,19 @@ pub fn generator(input: &str) -> Object {
     let rules = top
         .trim_end()
         .lines()
-        .map(|s| parse_split_once(s, '|').unwrap())
+        .map(|s| {
+            let (a, b) = parse_split_once(s, '|').unwrap();
+            pair(a, b)
+        })
         .collect();
     let pages = bot.lines().map(|s| parse_split(s, ',')).collect();
 
     Object { rules, pages }
 }
 
-fn check_page(rules: &HashSet<(usize, usize)>, page: &[usize]) -> bool {
-    page.windows(2).all(|win| rules.contains(&(win[0], win[1])))
+fn check_page(rules: &BitSet, page: &[usize]) -> bool {
+    page.windows(2)
+        .all(|win| rules.contains(pair(win[0], win[1])))
 }
 
 #[aoc(day5, part1)]
@@ -54,7 +62,7 @@ pub fn part2(inputs: &Object) -> usize {
         let mut p = page.to_vec();
 
         p.sort_by(|&a, &b| {
-            if inputs.rules.contains(&(a, b)) {
+            if inputs.rules.contains(pair(a, b)) {
                 Ordering::Less
             } else {
                 Ordering::Greater
