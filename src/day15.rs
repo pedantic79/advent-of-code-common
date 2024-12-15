@@ -1,4 +1,4 @@
-use core::fmt;
+use std::fmt;
 
 use ahash::{HashMap, HashMapExt};
 use aoc_runner_derive::{aoc, aoc_generator};
@@ -6,9 +6,9 @@ use pathfinding::{matrix::directions, utils::move_in_direction};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Input {
-    state: HashMap<(usize, usize), Block>,
+    warehouse: HashMap<(usize, usize), Block>,
     robot_pos: (usize, usize),
-    moves: Vec<(isize, isize)>,
+    moves: Option<Vec<(isize, isize)>>,
     dim: (usize, usize),
 }
 
@@ -28,7 +28,7 @@ fn dir_to_char(dir: (isize, isize)) -> char {
         directions::N => '^',
         directions::W => '<',
         directions::S => 'v',
-        _ => '*',
+        _ => panic!("unknown direction"),
     }
 }
 
@@ -36,21 +36,18 @@ impl fmt::Display for Input {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for r in 0..self.dim.0 {
             for c in 0..self.dim.1 {
-                if let Some(block) = self.state.get(&(r, c)) {
-                    write!(
-                        f,
-                        "{}",
-                        match block {
-                            Block::Wall => "#",
-                            Block::Box => "O",
-                            Block::Robot => "@",
-                            Block::LBox => "[",
-                            Block::RBox => "]",
-                        }
-                    )?;
+                let ch = if let Some(block) = self.warehouse.get(&(r, c)) {
+                    match block {
+                        Block::Wall => '#',
+                        Block::Box => 'O',
+                        Block::Robot => '@',
+                        Block::LBox => '[',
+                        Block::RBox => ']',
+                    }
                 } else {
-                    write!(f, ".")?;
-                }
+                    '.'
+                };
+                write!(f, "{ch}")?;
             }
             writeln!(f)?;
         }
@@ -60,57 +57,28 @@ impl fmt::Display for Input {
 }
 
 impl Input {
-    fn raw_move_object(&mut self, pos: (usize, usize), new_pos: (usize, usize)) {
-        assert!(self.state.contains_key(&pos));
-        // assert!(!self.state.contains_key(&new_pos));
-
-        if let Some(block) = self.state.remove(&pos) {
-            self.state.insert(new_pos, block);
-        }
+    /// Removes the `moves` from the `Input`. This is useful to allow us
+    /// loop over the `moves`, while modifying the `warehouse` at the same time.
+    fn take_moves(&mut self) -> Vec<(isize, isize)> {
+        self.moves.take().expect("moves already taken")
     }
 
-    fn move_object_p1(
-        &mut self,
-        pos: (usize, usize),
-        dir: (isize, isize),
-    ) -> Option<(usize, usize)> {
-        let new_pos = move_in_direction(pos, dir, self.dim)?;
-        let target_block = self.state.get(&new_pos).copied();
-
-        match target_block {
-            None => {
-                self.raw_move_object(pos, new_pos);
-                Some(new_pos)
-            }
-            Some(Block::Wall) => None,
-            Some(Block::Robot) => {
-                unreachable!()
-            }
-            Some(Block::Box) => {
-                self.move_object_p1(new_pos, dir)?;
-                self.raw_move_object(pos, new_pos);
-                Some(new_pos)
-            }
-            _ => panic!("this is meant for part 1 only"),
-        }
-    }
-
-    fn double_wide(&self) -> Self {
-        let mut state = HashMap::new();
+    fn widen_warehouse(&self) -> Self {
+        let mut warehouse = HashMap::with_capacity(self.warehouse.len() * 2 - 1);
         for r in 0..self.dim.0 {
             for c in 0..self.dim.1 {
-                if let Some(&block) = self.state.get(&(r, c)) {
+                if let Some(&block) = self.warehouse.get(&(r, c)) {
                     match block {
                         Block::Wall => {
-                            state.insert((r, c * 2), Block::Wall);
-                            state.insert((r, c * 2 + 1), Block::Wall);
+                            warehouse.insert((r, c * 2), Block::Wall);
+                            warehouse.insert((r, c * 2 + 1), Block::Wall);
                         }
                         Block::Box => {
-                            state.insert((r, c * 2), Block::LBox);
-                            state.insert((r, c * 2 + 1), Block::RBox);
+                            warehouse.insert((r, c * 2), Block::LBox);
+                            warehouse.insert((r, c * 2 + 1), Block::RBox);
                         }
                         Block::Robot => {
-                            state.insert((r, c * 2), Block::Robot);
+                            warehouse.insert((r, c * 2), Block::Robot);
                         }
                         _ => panic!("can't pass expanded input"),
                     }
@@ -119,85 +87,90 @@ impl Input {
         }
 
         Input {
-            state,
+            warehouse,
             robot_pos: (self.robot_pos.0, self.robot_pos.1 * 2),
             moves: self.moves.clone(),
             dim: (self.dim.0, self.dim.1 * 2),
         }
     }
 
-    fn move_object_p2(
+    /// Swaps the `pos` and `new_pos`, if `sim_only` is true, then we won't modify the warehouse.
+    fn raw_move_block(&mut self, pos: (usize, usize), new_pos: (usize, usize), sim_only: bool) {
+        assert!(self.warehouse.contains_key(&pos));
+        assert!(!self.warehouse.contains_key(&new_pos));
+
+        if sim_only {
+            return;
+        }
+
+        if let Some(block) = self.warehouse.remove(&pos) {
+            self.warehouse.insert(new_pos, block);
+        }
+    }
+
+    /// Moves a block at `pos` in the direction `dir`. If `sim_only` is true then
+    /// only simulate the move, don't modify the state.
+    ///
+    /// Returns the new position if the move is possible, and returns `None` if
+    /// the move fails.
+    fn move_block(
         &mut self,
         pos: (usize, usize),
         dir: (isize, isize),
-        dryrun: bool,
+        sim_only: bool, // if true, this doesn't move any blocks
     ) -> Option<(usize, usize)> {
-        let new_pos = move_in_direction(pos, dir, self.dim)?;
-        let target_block = self.state.get(&new_pos).copied();
+        let target_pos = move_in_direction(pos, dir, self.dim)?;
+        let target_block = self.warehouse.get(&target_pos).copied();
 
         match target_block {
             None => {
-                if !dryrun {
-                    self.raw_move_object(pos, new_pos)
-                };
-                Some(new_pos)
+                self.raw_move_block(pos, target_pos, sim_only);
             }
-            Some(Block::Wall) => None,
+            Some(Block::Wall) => return None,
             Some(Block::Robot) => {
-                unreachable!()
+                panic!("you're not supposed to move a robot")
             }
-            Some(Block::LBox) => {
+            Some(Block::Box) => {
+                self.move_block(target_pos, dir, sim_only)?;
+                self.raw_move_block(pos, target_pos, sim_only);
+            }
+            Some(Block::LBox) | Some(Block::RBox) => {
                 if dir == directions::E || dir == directions::W {
-                    self.move_object_p2(new_pos, dir, dryrun)?;
-                    if !dryrun {
-                        self.raw_move_object(pos, new_pos);
-                    }
+                    // treat this like part1
+                    self.move_block(target_pos, dir, sim_only)?;
+                    self.raw_move_block(pos, target_pos, sim_only);
                 } else {
-                    let rbox_pos = move_in_direction(new_pos, directions::E, self.dim).unwrap();
-                    let right = self.state.get(&rbox_pos).copied();
+                    // Get the direction and expected_linked_block based on the target_block we're looking for
+                    let (direction, expected_linked_block) = if target_block == Some(Block::LBox) {
+                        (directions::E, Block::RBox)
+                    } else {
+                        (directions::W, Block::LBox)
+                    };
 
-                    // the position to our right should be an rbox
-                    assert_eq!(right, Some(Block::RBox));
+                    // get the linked_block and linked_block_pos of our Box
+                    let linked_block_pos =
+                        move_in_direction(target_pos, direction, self.dim).unwrap();
+                    let linked_block = self.warehouse.get(&linked_block_pos).copied();
 
-                    // try to move the object up
-                    self.move_object_p2(rbox_pos, dir, true)?;
-                    self.move_object_p2(new_pos, dir, true)?;
-                    if !dryrun {
-                        self.move_object_p2(new_pos, dir, false)?;
-                        self.move_object_p2(rbox_pos, dir, false)?;
-                        self.raw_move_object(pos, new_pos);
+                    // the position to our left or right should be match expected_linked_block
+                    assert_eq!(linked_block, Some(expected_linked_block));
+
+                    // try to move the object both blocks up, if either fails we will exit quickly
+                    self.move_block(linked_block_pos, dir, true)?;
+                    self.move_block(target_pos, dir, true)?;
+                    if !sim_only {
+                        // if we get here, that means the simulation of moves was successful
+                        // now do the real moves
+                        self.move_block(target_pos, dir, false)?;
+                        self.move_block(linked_block_pos, dir, false)?;
+
+                        // only move our current target_block, the target_block will be moved through recursion
+                        self.raw_move_block(pos, target_pos, sim_only);
                     }
                 }
-
-                Some(new_pos)
             }
-            Some(Block::RBox) => {
-                if dir == directions::E || dir == directions::W {
-                    self.move_object_p2(new_pos, dir, dryrun)?;
-                    if !dryrun {
-                        self.raw_move_object(pos, new_pos);
-                    }
-                } else {
-                    let lbox_pos = move_in_direction(new_pos, directions::W, self.dim).unwrap();
-                    let right = self.state.get(&lbox_pos).copied();
-
-                    // the position to our right should be an rbox
-                    assert_eq!(right, Some(Block::LBox));
-
-                    // try to move the object up
-                    self.move_object_p2(lbox_pos, dir, true)?;
-                    self.move_object_p2(new_pos, dir, true)?;
-                    if !dryrun {
-                        self.move_object_p2(lbox_pos, dir, false)?;
-                        self.move_object_p2(new_pos, dir, false)?;
-                        self.raw_move_object(pos, new_pos);
-                    }
-                }
-
-                Some(new_pos)
-            }
-            _ => panic!("this is meant for part 2 only"),
         }
+        Some(target_pos)
     }
 }
 
@@ -243,30 +216,32 @@ pub fn generator(input: &str) -> Input {
         .collect();
 
     Input {
-        state: hm,
+        warehouse: hm,
         robot_pos,
-        moves,
+        moves: Some(moves),
         dim,
     }
 }
 
 #[aoc(day15, part1)]
 pub fn part1(inputs: &Input) -> usize {
-    let moves = &inputs.moves;
     let mut inputs = inputs.clone();
+    let moves = inputs.take_moves();
     let mut robot_pos = inputs.robot_pos;
 
-    for &m in moves {
-        if let Some(rpos) = inputs.move_object_p1(robot_pos, m) {
+    for &m in moves.iter() {
+        if let Some(rpos) = inputs.move_block(robot_pos, m, false) {
             robot_pos = rpos;
         }
+        // print!("{}[2J", 27 as char);
         // println!("Move {:?}:", dir_to_char(m));
         // println!("{}\n", inputs);
+        // std::thread::sleep(std::time::Duration::from_millis(100));
     }
 
     // println!("{}\n", inputs);
     inputs
-        .state
+        .warehouse
         .iter()
         .map(|(pos, block)| {
             if block == &Block::Box {
@@ -280,23 +255,23 @@ pub fn part1(inputs: &Input) -> usize {
 
 #[aoc(day15, part2)]
 pub fn part2(inputs: &Input) -> usize {
-    let inputs = inputs.double_wide();
-
-    let moves = &inputs.moves;
-    let mut inputs = inputs.clone();
+    let mut inputs = inputs.widen_warehouse();
+    let moves = inputs.take_moves();
     let mut robot_pos = inputs.robot_pos;
 
-    for &m in moves {
-        // println!("Move {:?}:", dir_to_char(m));
-        if let Some(rpos) = inputs.move_object_p2(robot_pos, m, false) {
+    for &m in moves.iter() {
+        if let Some(rpos) = inputs.move_block(robot_pos, m, false) {
             robot_pos = rpos;
         }
+        // print!("{}[2J", 27 as char);
+        // println!("Move {:?}:", dir_to_char(m));
         // println!("{}\n", inputs);
+        // std::thread::sleep(std::time::Duration::from_millis(100));
     }
 
     // println!("{}\n", inputs);
     inputs
-        .state
+        .warehouse
         .iter()
         .map(|(pos, block)| {
             if block == &Block::LBox {
@@ -364,12 +339,15 @@ v^^>>><<^^<>>^v^<v^vv<>v^<<>^<^v^v><^<<<><<^<v><v<>vv>>v><v^<vv<>v^<<^";
 
     #[test]
     pub fn part1_test() {
+        assert_eq!(part1(&generator(SAMPLE1)), 908);
         assert_eq!(part1(&generator(SAMPLE0)), 2028);
         assert_eq!(part1(&generator(SAMPLE)), 10092);
     }
 
     #[test]
     pub fn part2_test() {
+        assert_eq!(part2(&generator(SAMPLE1)), 618);
+        assert_eq!(part2(&generator(SAMPLE0)), 1751);
         assert_eq!(part2(&generator(SAMPLE)), 9021);
     }
 
