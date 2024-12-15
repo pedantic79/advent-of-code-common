@@ -68,8 +68,8 @@ fn print_robots<const H: usize, const W: usize>(robots: &[Robot]) {
     }
 }
 
-fn solve_part1<const H: usize, const W: usize>(mut robots: Vec<Robot>) -> usize {
-    robots.iter_mut().for_each(|r| r.simulate(100, (H, W)));
+fn solve_part1<const H: usize, const W: usize>(times: usize, mut robots: Vec<Robot>) -> usize {
+    robots.iter_mut().for_each(|r| r.simulate(times, (H, W)));
 
     let mid = (H / 2, W / 2);
 
@@ -88,7 +88,7 @@ fn solve_part1<const H: usize, const W: usize>(mut robots: Vec<Robot>) -> usize 
 
 #[aoc(day14, part1)]
 pub fn part1(robots: &[Robot]) -> usize {
-    solve_part1::<HEIGHT, WIDTH>(robots.to_vec())
+    solve_part1::<HEIGHT, WIDTH>(100, robots.to_vec())
 }
 
 fn solve_part2<const H: usize, const W: usize>(mut robots: Vec<Robot>) -> usize {
@@ -166,12 +166,26 @@ p=9,5 v=-3,-3";
 
     #[test]
     pub fn part1_test() {
-        assert_eq!(solve_part1::<S_HEIGHT, S_WIDTH>(generator(SAMPLE)), 12);
+        assert_eq!(solve_part1::<S_HEIGHT, S_WIDTH>(100, generator(SAMPLE)), 12);
     }
 
     #[test]
     pub fn part2_test() {
         let mut robots = generator(SAMPLE);
+
+        let score = (0..(S_HEIGHT * S_WIDTH))
+            .map(|i| {
+                (
+                    i + 1,
+                    solve_part1::<S_HEIGHT, S_WIDTH>(i + 1, robots.clone()),
+                )
+            })
+            .reduce(|acc, p| if p.1 < acc.1 { p } else { acc })
+            .unwrap()
+            .0;
+
+        assert_eq!(score, 5);
+
         let steps = solve_part2::<S_HEIGHT, S_WIDTH>(robots.clone());
         assert_eq!(steps, 24);
 
@@ -201,7 +215,7 @@ p=9,5 v=-3,-3";
                 r.simulate(ANSWERS.1, (HEIGHT, WIDTH));
             }
             println!();
-            print_robots::<HEIGHT, WIDTH>(&robots);
+            // print_robots::<HEIGHT, WIDTH>(&robots);
         }
     }
 }
