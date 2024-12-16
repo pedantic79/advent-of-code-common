@@ -1,21 +1,24 @@
-use ahash::HashSet;
 use aoc_runner_derive::{aoc, aoc_generator};
+use bit_set::BitSet;
 use pathfinding::{
     matrix::directions,
-    prelude::{astar_bag_collect, dijkstra},
+    prelude::{astar_bag, dijkstra},
     utils::move_in_direction,
 };
 
+type Direction = (isize, isize);
+type Position = (usize, usize);
+type State = (Position, Direction);
+
 #[derive(Debug, PartialEq, Eq)]
-pub struct Object {
-    start: (usize, usize),
-    end: (usize, usize),
+pub struct Maze {
+    start: (Position, Direction),
+    end: Position,
     map: Vec<Vec<u8>>,
-    dir: (isize, isize),
 }
 
 #[aoc_generator(day16)]
-pub fn generator(input: &str) -> Object {
+pub fn generator(input: &str) -> Maze {
     let mut start = (0, 0);
     let mut end = (0, 0);
 
@@ -33,107 +36,65 @@ pub fn generator(input: &str) -> Object {
         })
         .collect();
 
-    Object {
-        start,
+    Maze {
+        start: (start, directions::E),
         end,
         map,
-        dir: directions::E,
     }
 }
 
-fn choices(dir: (isize, isize)) -> [((isize, isize), usize); 4] {
-    match dir {
-        directions::N => [
-            (directions::W, 1000),
-            (directions::E, 1000),
-            (directions::S, 2000),
-            (directions::N, 1),
-        ],
-        directions::E => [
-            (directions::N, 1000),
-            (directions::S, 1000),
-            (directions::W, 2000),
-            (directions::E, 1),
-        ],
-        directions::S => [
-            (directions::E, 1000),
-            (directions::W, 1000),
-            (directions::N, 2000),
-            (directions::S, 1),
-        ],
-        directions::W => [
-            (directions::N, 1000),
-            (directions::S, 1000),
-            (directions::E, 2000),
-            (directions::W, 1),
-        ],
-        _ => panic!("unknown direction"),
-    }
+fn choices((y, x): Direction) -> [(Direction, usize); 4] {
+    [
+        ((y, x), 1),
+        ((x, -y), 1000),
+        ((-y, -x), 2000),
+        ((-x, y), 1000),
+    ]
+}
+
+fn successors(maze: &Maze, state: State) -> impl Iterator<Item = (State, usize)> + '_ {
+    let (pos, dir) = state;
+
+    choices(dir).into_iter().filter_map(move |(new_dir, cost)| {
+        if cost == 1 {
+            let new_pos = move_in_direction(pos, dir, (maze.map.len(), maze.map[0].len()))?;
+            if maze.map[new_pos.0][new_pos.1] != b'#' {
+                Some(((new_pos, dir), cost))
+            } else {
+                None
+            }
+        } else {
+            Some(((pos, new_dir), cost))
+        }
+    })
 }
 
 #[aoc(day16, part1)]
-pub fn part1(inputs: &Object) -> usize {
-    let ans = dijkstra(
-        &(inputs.start, inputs.dir),
-        |&(pos, dir)| {
-            choices(dir)
-                .iter()
-                .filter_map(move |&(new_dir, cost)| {
-                    if cost == 1 {
-                        let new_pos =
-                            move_in_direction(pos, dir, (inputs.map.len(), inputs.map[0].len()))?;
-                        if inputs.map[new_pos.0][new_pos.1] != b'#' {
-                            Some(((new_pos, dir), cost))
-                        } else {
-                            None
-                        }
-                    } else {
-                        Some(((pos, new_dir), cost))
-                    }
-                })
-                .collect::<Vec<_>>()
-        },
-        |(pos, _)| pos == &inputs.end,
+pub fn part1(maze: &Maze) -> usize {
+    dijkstra(
+        &maze.start,
+        |&state| successors(maze, state),
+        |&(pos, _)| pos == maze.end,
     )
-    .unwrap();
-
-    // println!("{:?}", ans.0);
-
-    ans.1
+    .unwrap()
+    .1
 }
 
 #[aoc(day16, part2)]
-pub fn part2(inputs: &Object) -> usize {
-    let ans = astar_bag_collect(
-        &(inputs.start, inputs.dir),
-        |&(pos, dir)| {
-            choices(dir)
-                .iter()
-                .filter_map(move |&(new_dir, cost)| {
-                    if cost == 1 {
-                        let new_pos =
-                            move_in_direction(pos, dir, (inputs.map.len(), inputs.map[0].len()))?;
-                        if inputs.map[new_pos.0][new_pos.1] != b'#' {
-                            Some(((new_pos, dir), cost))
-                        } else {
-                            None
-                        }
-                    } else {
-                        Some(((pos, new_dir), cost))
-                    }
-                })
-                .collect::<Vec<_>>()
-        },
-        |_| 0,
-        |(pos, _)| pos == &inputs.end,
-    )
-    .unwrap();
+pub fn part2(maze: &Maze) -> usize {
+    let width = maze.map[0].len();
 
-    ans.0
-        .iter()
-        .flat_map(|v| v.iter().map(|(p, _)| p))
-        .collect::<HashSet<_>>()
-        .len()
+    astar_bag(
+        &maze.start,
+        |&state| successors(maze, state),
+        |_| 0,
+        |&(pos, _)| pos == maze.end,
+    )
+    .unwrap()
+    .0
+    .flat_map(|v| v.into_iter().map(|(p, _)| p.0 * width + p.1))
+    .collect::<BitSet<usize>>()
+    .len()
 }
 
 #[cfg(test)]
