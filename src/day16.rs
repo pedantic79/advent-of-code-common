@@ -43,13 +43,10 @@ pub fn generator(input: &str) -> Maze {
     }
 }
 
-fn choices((y, x): Direction) -> [(Direction, usize); 4] {
-    [
-        ((y, x), 1),
-        ((x, -y), 1000),
-        ((-y, -x), 2000),
-        ((-x, y), 1000),
-    ]
+fn choices((y, x): Direction) -> [(Direction, usize); 3] {
+    // ((-y, -x), 2000), // this is going backwards
+
+    [((y, x), 1), ((x, -y), 1000), ((-x, y), 1000)]
 }
 
 fn successors(maze: &Maze, state: State) -> impl Iterator<Item = (State, usize)> + '_ {
