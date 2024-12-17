@@ -1,9 +1,7 @@
+use std::fmt::Write;
+
 use aoc_runner_derive::{aoc, aoc_generator};
-use itertools::Itertools;
-use nom::{
-    bytes::complete::tag, character::complete::newline, combinator::all_consuming,
-    sequence::preceded, IResult, Parser,
-};
+use nom::{bytes::complete::tag, sequence::preceded, IResult, Parser};
 
 use crate::common::{nom::nom_i64, parse::parse_split};
 
@@ -31,13 +29,22 @@ pub enum Instruction {
 }
 
 impl Computer {
-    fn run_instruction(&mut self, ins: Instruction, operand: Instruction) -> Option<usize> {
+    fn new(a: IntType) -> Self {
+        Self {
+            a,
+            b: 0,
+            c: 0,
+            output: Vec::new(),
+        }
+    }
+    fn run_instruction(&mut self, ins: IntType, operand: IntType) -> Option<usize> {
         let combo = self.get_combo(operand);
-        let operand = operand as u8 as IntType;
+
+        let ins = unsafe { std::mem::transmute::<u8, Instruction>(ins as u8) };
 
         match ins {
             Instruction::Adv => {
-                self.a /= 2_i64.pow(combo as u32);
+                self.a >>= combo;
             }
             Instruction::Bxl => {
                 self.b ^= operand;
@@ -57,68 +64,48 @@ impl Computer {
                 self.output.push(combo % 8);
             }
             Instruction::Bdv => {
-                self.b = self.a / 2_i64.pow(combo as u32);
+                self.b = self.a >> combo;
             }
             Instruction::Cdv => {
-                self.c = self.a / 2_i64.pow(combo as u32);
+                self.c = self.a >> combo;
             }
         }
 
         None
     }
 
-    fn get_combo(&self, operand: Instruction) -> IntType {
+    fn get_combo(&self, operand: IntType) -> IntType {
         match operand {
-            Instruction::Adv => 0,
-            Instruction::Bxl => 1,
-            Instruction::Bst => 2,
-            Instruction::Jnz => 3,
-            Instruction::Bxc => self.a,
-            Instruction::Out => self.b,
-            Instruction::Bdv => self.c,
-            Instruction::Cdv => panic!("invalid operand"),
+            0 => 0,
+            1 => 1,
+            2 => 2,
+            3 => 3,
+            4 => self.a,
+            5 => self.b,
+            6 => self.c,
+            _ => panic!("invalid operand"),
         }
     }
 }
 
-fn parse_computer(s: &str) -> IResult<&str, Computer> {
+fn parse_a(s: &str) -> IResult<&str, IntType> {
     let (s, a) = preceded(tag("Register A: "), nom_i64).parse(s)?;
-    let (s, _) = newline.parse(s)?;
-    let (s, b) = preceded(tag("Register B: "), nom_i64).parse(s)?;
-    let (s, _) = newline.parse(s)?;
-    let (s, c) = preceded(tag("Register C: "), nom_i64).parse(s)?;
 
-    Ok((
-        s,
-        Computer {
-            a,
-            b,
-            c,
-            output: Vec::new(),
-        },
-    ))
+    Ok((s, a))
 }
 
 #[aoc_generator(day17)]
-pub fn generator(input: &str) -> (Computer, Vec<Instruction>) {
+pub fn generator(input: &str) -> (IntType, Vec<IntType>) {
     let (reg, pro) = input.split_once("\n\n").unwrap();
-    let computer = all_consuming(parse_computer).parse(reg).unwrap().1;
-
+    let a = parse_a.parse(reg).unwrap().1;
     let nums = pro.split_once(": ").unwrap().1;
-    let program: Vec<u8> = parse_split(nums, ',');
+    let program = parse_split(nums, ',');
 
-    (computer, unsafe {
-        std::mem::transmute::<std::vec::Vec<u8>, std::vec::Vec<Instruction>>(program)
-    })
+    (a, program)
 }
 
-fn run_computer(a: IntType, ins: &[Instruction]) -> Vec<IntType> {
-    let mut computer = Computer {
-        a,
-        b: 0,
-        c: 0,
-        output: Vec::new(),
-    };
+fn run_computer(a: IntType, ins: &[IntType], one_shot: bool) -> Vec<IntType> {
+    let mut computer = Computer::new(a);
 
     let mut pc = 0;
     while pc + 1 < ins.len() {
@@ -132,6 +119,9 @@ fn run_computer(a: IntType, ins: &[Instruction]) -> Vec<IntType> {
         //     computer.get_combo(j)
         // );
         if let Some(jump) = computer.run_instruction(i, j) {
+            if one_shot {
+                return computer.output;
+            }
             pc = jump;
         } else {
             pc += 2;
@@ -142,32 +132,23 @@ fn run_computer(a: IntType, ins: &[Instruction]) -> Vec<IntType> {
 }
 
 #[aoc(day17, part1)]
-pub fn part1(inputs: &(Computer, Vec<Instruction>)) -> String {
-    let output = run_computer(inputs.0.a, &inputs.1);
-    let v = output.into_iter().map(|n| n.to_string()).collect_vec();
-    v.join(",")
+pub fn part1(inputs: &(IntType, Vec<IntType>)) -> String {
+    let output = run_computer(inputs.0, &inputs.1, false);
+
+    // This avoids allocating a vec, and extra strings.
+    let mut buf = String::with_capacity(output.len() * 2 - 1);
+    buf.write_fmt(format_args!("{}", output[0])).unwrap();
+    for n in &output[1..] {
+        buf.write_fmt(format_args!(",{n}")).unwrap();
+    }
+    buf
 }
 
 #[aoc(day17, part2)]
-pub fn part2(inputs: &(Computer, Vec<Instruction>)) -> IntType {
-    // 2,4 = BST 4: B = A % 8
-    // 1,4 = BXL 4: B = B ^ 4
-    // 7,5 = CDV 5: C = A >> B
-    // 4,1 = BXC 1: B = B ^ C
-    // 1,4 = BXL 4: B = B ^ 4
-    // 5,5 = OUT 5: PRINT B%8
-    // 0,3 = ADV 3: A = A >> 3
-    // 3,0 = JMP 0: JUMP 0
-
-    fn get_out(a: IntType) -> IntType {
-        let b = (a % 8) ^ 4;
-        let c = a >> b;
-        (b ^ c ^ 4) % 8
-    }
-
+pub fn part2(inputs: &(IntType, Vec<IntType>)) -> IntType {
     let ins = &inputs.1;
-    let ins_inttype: Vec<_> = ins.iter().map(|&x| x as IntType).collect();
 
+    // See: https://en.wikipedia.org/wiki/Quine_(computing)
     let mut quines = vec![0];
     let mut new_quines = Vec::new();
 
@@ -177,7 +158,7 @@ pub fn part2(inputs: &(Computer, Vec<Instruction>)) -> IntType {
         for curr in quines.iter() {
             for i in 0..8 {
                 let a = (curr << 3) + i;
-                if get_out(a) == num {
+                if run_computer(a, ins, true)[0] == num {
                     new_quines.push(a);
                     // println!("{new_quines:?}");
                 }
@@ -186,13 +167,13 @@ pub fn part2(inputs: &(Computer, Vec<Instruction>)) -> IntType {
         std::mem::swap(&mut quines, &mut new_quines);
     }
 
-    quines.sort_unstable();
+    // using stable sort, because the quines may already be sorted.
+    quines.sort();
 
-    // println!("{quines:?}");
     quines
         .iter()
         .copied()
-        .find(|&x| run_computer(x, ins) == ins_inttype)
+        .find(|&x| &run_computer(x, ins, false) == ins)
         .unwrap()
 }
 
