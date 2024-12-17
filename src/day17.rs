@@ -147,15 +147,21 @@ pub fn part1((a, program): &(IntType, Vec<IntType>)) -> String {
 
 fn solve_p2(a: IntType, target: &[IntType], ins: &[IntType]) -> Option<IntType> {
     if target.is_empty() {
-        // I think most people don't need to do this.
-        // I get the wrong output if I don't check.
-        return Some(a).filter(|_| run_computer(a, ins, false) == ins);
+        // For whatever reason, if a == 0 and i == 0 produces a solution, it is wrong.
+        // I don't know if others see this, but this is the most reliable method of checking
+        // the filter can be removed if you include the check for a == 0 and i == 0
+        return Some(a).filter(|a| run_computer(*a, ins, false) == ins);
     }
 
     let last = target.len() - 1;
     let last_ins = target[last];
 
     for i in 0..8 {
+        // if a == 0 && i == 0 {
+        //     // This avoid cases where the trailing 0 is missing in the final output
+        //     continue;
+        // }
+
         let candidate = (a << 3) + i;
         if run_computer(candidate, ins, true)[0] == last_ins {
             if let Some(res) = solve_p2(candidate, &target[0..last], ins) {
@@ -181,33 +187,36 @@ pub fn part2((_, program): &(IntType, Vec<IntType>)) -> IntType {
 
     // This only works because the previous asserts are true.
     //
-    // The instruction set only has one way of modifying A, via the ADV ins.
+    // * The instruction set only has one way of modifying A, via the ADV ins.
+    // JNZ and OUT do not modify any register.
     // All other instructions modifying registers modify B or C.
     // So at somepoint we will modify the A register with ADV 3 this shifts A
     // to the right 3
     //
-    // There is only one Out instruction, we only output one number per loop
+    // * There is only one Out instruction, we only output one number per loop
     //
-    // then at the end it will jump to the beginning (JNZ 0)
+    // * At the end it will jump to the beginning (JNZ 0)
     //
     // so in psuedo-code all programs must look something like this
     //
     // do {
-    //    b = (a % 8) ^ 4;
-    //    c = a >> b;
-    //    b = b ^ c ^ 4;
+    //    b = (a % 8) ^ 4; // BST 4; BXL 4
+    //    c = a >> b;      // CDV 5
+    //    b = b ^ c ^ 4;   // BXC 1; BXL 4
     //    output(b % 8);   // OUT 5
-    //    a = a >> 3;  // ADV 3
-    // } while a != 0; // JNZ 0
+    //    a = a >> 3;      // ADV 3
+    // } while a != 0;     // JNZ 0
     //
-    // as long as ADV 3 is done, and we output B or C. The ordering isn't important.
+    // We modify B and C, output, shift A right, and then loop. The ordering
+    // isn't important, except that JNZ is at the end
     //
-    // since we're in a 3-bit machine, we're essentially always outputing one digit
-    // based on one 3 bit segment of A
+    // Each time through we calculate B and C based on A and only A.
     //
-    // to solve this, we will loop through backwards. Looking for an A that
-    // produces the value in the program we want. To get that A, we will do A << 3
-    // and check all variants 0-7
+    // To solve this, we will loop through the input program backwards.
+    // We will pick an A (0 to 7), such that it produces the right program digit.
+    // Then we left shift A by 3, and check every variation of those 3 new bits.
+    // As there are possibly 0 or more matching at each step, we use recursion
+    // to allow us to backtrack.
     solve_p2(0, program, program).unwrap_or(0)
 }
 
@@ -236,6 +245,14 @@ Program: 0,1,5,4,3,0";
     #[test]
     pub fn part2_test() {
         assert_eq!(part2(&(0, vec![0, 3, 5, 4, 3, 0])), 117440);
+        assert_eq!(
+            part2(&(0, vec![2, 4, 1, 2, 7, 5, 4, 1, 1, 3, 5, 5, 0, 3, 3, 0])),
+            37221261688308,
+        );
+        assert_eq!(
+            part2(&(0, vec![2, 4, 1, 3, 7, 5, 1, 6, 1, 4, 5, 5, 0, 3, 3, 0])),
+            45188036846635,
+        );
     }
 
     mod regression {
