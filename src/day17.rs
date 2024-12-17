@@ -1,4 +1,3 @@
-use ahash::HashSet;
 use aoc_runner_derive::{aoc, aoc_generator};
 use itertools::Itertools;
 use nom::{
@@ -103,7 +102,7 @@ fn parse_computer(s: &str) -> IResult<&str, Computer> {
 #[aoc_generator(day17)]
 pub fn generator(input: &str) -> (Computer, Vec<Instruction>) {
     let (reg, pro) = input.split_once("\n\n").unwrap();
-    let computer = all_consuming(parse_computer)(reg).unwrap().1;
+    let computer = all_consuming(parse_computer).parse(reg).unwrap().1;
 
     let nums = pro.split_once(": ").unwrap().1;
     let program: Vec<u8> = parse_split(nums, ',');
@@ -160,8 +159,6 @@ pub fn part2(inputs: &(Computer, Vec<Instruction>)) -> IntType {
     // 0,3 = ADV 3: A = A >> 3
     // 3,0 = JMP 0: JUMP 0
 
-    // PRINT(((A % 8) ^ 4) ^ (A >> ((A % 8) ^ 4)) ^ 4)
-
     fn get_out(a: IntType) -> IntType {
         let b = (a % 8) ^ 4;
         let c = a >> b;
@@ -171,28 +168,30 @@ pub fn part2(inputs: &(Computer, Vec<Instruction>)) -> IntType {
     let ins = &inputs.1;
     let ins_inttype: Vec<_> = ins.iter().map(|&x| x as IntType).collect();
 
-    let mut quines = HashSet::default();
-    quines.insert(0);
+    let mut quines = vec![0];
+    let mut new_quines = Vec::new();
+
     for num in ins.iter().rev() {
         let num = *num as IntType;
-        let mut new_quines = HashSet::default();
-        for curr in quines {
+        new_quines.clear();
+        for curr in quines.iter() {
             for i in 0..8 {
                 let a = (curr << 3) + i;
                 if get_out(a) == num {
-                    new_quines.insert(a);
+                    new_quines.push(a);
                     // println!("{new_quines:?}");
                 }
             }
         }
-        quines = new_quines;
+        std::mem::swap(&mut quines, &mut new_quines);
     }
+
+    quines.sort_unstable();
 
     // println!("{quines:?}");
     quines
         .iter()
         .copied()
-        .sorted()
         .find(|&x| run_computer(x, ins) == ins_inttype)
         .unwrap()
 }
@@ -236,7 +235,7 @@ Program: 0,1,5,4,3,0";
             let output = generator(input);
 
             assert_eq!(part1(&output), ANSWERS.0);
-            // assert_eq!(part2(&output), ANSWERS.1);
+            assert_eq!(part2(&output), ANSWERS.1);
         }
     }
 }
