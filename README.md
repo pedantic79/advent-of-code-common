@@ -32,6 +32,8 @@
   - [solution](src/day15.rs)
 - [Day 16: Restroom Redoubt](https://adventofcode.com/2024/day/16)
   - [solution](src/day16.rs)
+- [Day 17: Chronospatial Computer](https://adventofcode.com/2024/day/17)
+  - [solution](src/day17.rs)
 <!-- Insert before -->
 
 See:
@@ -39,7 +41,3 @@ See:
 - [Advent of Code 2024](https://adventofcode.com/2024/)
 - [aoc-runner](https://crates.io/crates/aoc-runner)
 - [cargo-aoc](https://crates.io/crates/cargo-aoc)
-
-Note:
-
-I'm using a custom version of [cargo-aoc](https://github.com/pedantic79/cargo-aoc/tree/new-criterion)
