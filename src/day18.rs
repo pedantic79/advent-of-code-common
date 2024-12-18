@@ -1,7 +1,6 @@
 use ahash::HashMap;
 use aoc_runner_derive::{aoc, aoc_generator};
 use pathfinding::{matrix::directions, prelude::bfs, utils::move_in_direction};
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::common::parse::parse_split_once;
 
@@ -37,13 +36,19 @@ pub fn part1(corruptions: &HashMap<(usize, usize), usize>) -> usize {
 
 #[aoc(day18, part2)]
 pub fn part2(corruptions: &HashMap<(usize, usize), usize>) -> String {
-    let ans = (1025..corruptions.len())
-        .into_par_iter()
-        .find_first(|&cand| solve_part1::<71, 71>(corruptions, cand).is_none())
-        .map(|cand| corruptions.iter().find(|x| *x.1 == cand - 1).unwrap().0)
-        .copied()
-        .unwrap();
+    let mut min = 1025;
+    let mut max = corruptions.len();
 
+    while min != max {
+        let mid = min + (max - min) / 2;
+        if solve_part1::<71, 71>(corruptions, mid).is_some() {
+            min = mid + 1;
+        } else {
+            max = mid;
+        }
+    }
+
+    let ans = corruptions.iter().find(|x| *x.1 == max - 1).unwrap().0;
     format!("{},{}", ans.0, ans.1)
 }
 
