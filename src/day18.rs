@@ -1,61 +1,104 @@
-use ahash::HashMap;
 use aoc_runner_derive::{aoc, aoc_generator};
 use pathfinding::{matrix::directions, prelude::bfs, utils::move_in_direction};
 
 use crate::common::parse::parse_split_once;
 
-#[aoc_generator(day18)]
-pub fn generator(input: &str) -> HashMap<(usize, usize), usize> {
-    input
-        .lines()
-        .enumerate()
-        .map(|(i, l)| (parse_split_once(l, ',').unwrap(), i))
-        .collect()
+const PROBLEM_LIM: usize = 1024;
+const PROBLEM_DIM: usize = 71;
+
+#[derive(Debug)]
+pub struct Corruptions {
+    lookup: Vec<Option<usize>>,
+    reverse: Vec<(usize, usize)>, // this is in (x,y)
+    height: usize,
+    width: usize,
 }
 
-fn solve_part1<const H: usize, const W: usize>(
-    corruptions: &HashMap<(usize, usize), usize>,
-    limit: usize,
-) -> Option<Vec<(usize, usize)>> {
+impl Corruptions {
+    fn get(&self, p: (usize, usize)) -> Option<usize> {
+        self.lookup.get(p.0 * self.width + p.1).copied().unwrap()
+    }
+
+    fn contains(&self, p: (usize, usize), limit: usize) -> bool {
+        // This returns true if there is a corruption at `p` and the corruption occurrs under the limit
+        // This returns false if there is no corruption (unwrap_or()) or we are at our limit
+        self.get(p).map(|i| i < limit).unwrap_or(false)
+    }
+}
+
+// Build a lookup forwards mapping coordinates to corruption number, and rule number to coordinate
+// note: that reverse is in (x, y) while everywhere else is in (y, x)
+fn generic_generator<const H: usize, const W: usize>(input: &str) -> Corruptions {
+    let mut lookup = vec![None; H * W];
+    let mut reverse = Vec::new();
+
+    for (i, l) in input.lines().enumerate() {
+        let (x, y): (usize, usize) = parse_split_once(l, ',').unwrap();
+        lookup[y * W + x] = Some(i);
+        reverse.push((x, y));
+    }
+
+    Corruptions {
+        lookup,
+        reverse,
+        height: H,
+        width: W,
+    }
+}
+
+#[aoc_generator(day18)]
+pub fn generator(input: &str) -> Corruptions {
+    generic_generator::<PROBLEM_DIM, PROBLEM_DIM>(input)
+}
+
+fn solve_part1(corruptions: &Corruptions, limit: usize) -> Option<Vec<(usize, usize)>> {
     bfs(
         &(0, 0),
         |&state| {
             directions::DIRECTIONS_4
                 .into_iter()
-                .filter_map(move |direction| move_in_direction(state, direction, (H, W)))
-                .filter(|p| !corruptions.get(p).map(|x| *x < limit).unwrap_or(false))
+                .filter_map(move |direction| {
+                    move_in_direction(state, direction, (corruptions.height, corruptions.width))
+                })
+                .filter(|p| !corruptions.contains(*p, limit))
         },
-        |&(y, x)| y + 1 == H && x + 1 == W,
+        |&(y, x)| y + 1 == corruptions.height && x + 1 == corruptions.width,
     )
 }
 
 #[aoc(day18, part1)]
-pub fn part1(corruptions: &HashMap<(usize, usize), usize>) -> usize {
-    solve_part1::<71, 71>(corruptions, 1024).unwrap().len() - 1
+pub fn part1(corruptions: &Corruptions) -> usize {
+    solve_part1(corruptions, PROBLEM_LIM).unwrap().len() - 1
 }
 
-#[aoc(day18, part2)]
-pub fn part2(corruptions: &HashMap<(usize, usize), usize>) -> String {
-    let mut min = 1025;
-    let mut max = corruptions.len();
+fn solve_part2<const LIMIT: usize>(corruptions: &Corruptions) -> String {
+    let mut min = LIMIT + 1;
+    let mut max = corruptions.reverse.len();
 
     while min != max {
         let mid = min + (max - min) / 2;
-        if solve_part1::<71, 71>(corruptions, mid).is_some() {
+        if solve_part1(corruptions, mid).is_some() {
             min = mid + 1;
         } else {
             max = mid;
         }
     }
 
-    let ans = corruptions.iter().find(|x| *x.1 == max - 1).unwrap().0;
+    let ans = corruptions.reverse[max - 1];
     format!("{},{}", ans.0, ans.1)
+}
+
+#[aoc(day18, part2)]
+pub fn part2(corruptions: &Corruptions) -> String {
+    solve_part2::<PROBLEM_LIM>(corruptions)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    const SAMPLE_DIM: usize = 7;
+    const SAMPLE_LIM: usize = 12;
     const SAMPLE: &str = r"5,4
 4,2
 4,5
@@ -84,7 +127,7 @@ mod tests {
 
     #[test]
     pub fn input_test() {
-        println!("{:?}", generator(SAMPLE));
+        // println!("{:?}", generator(SAMPLE));
 
         // assert_eq!(generator(SAMPLE), Object());
     }
@@ -92,15 +135,23 @@ mod tests {
     #[test]
     pub fn part1_test() {
         assert_eq!(
-            solve_part1::<7, 7>(&generator(SAMPLE), 12).unwrap().len() - 1,
+            solve_part1(
+                &generic_generator::<SAMPLE_DIM, SAMPLE_DIM>(SAMPLE),
+                SAMPLE_LIM
+            )
+            .unwrap()
+            .len()
+                - 1,
             22
         );
     }
 
     #[test]
     pub fn part2_test() {
-
-        // assert_eq!(part2(&generator(SAMPLE)), 336);
+        assert_eq!(
+            solve_part2::<SAMPLE_LIM>(&generic_generator::<SAMPLE_DIM, SAMPLE_DIM>(SAMPLE)),
+            "6,1"
+        );
     }
 
     mod regression {
