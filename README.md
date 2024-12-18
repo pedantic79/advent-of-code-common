@@ -34,6 +34,8 @@
   - [solution](src/day16.rs)
 - [Day 17: Chronospatial Computer](https://adventofcode.com/2024/day/17)
   - [solution](src/day17.rs)
+- [Day 18: RAM Run](https://adventofcode.com/2024/day/18)
+  - [solution](src/day18.rs)
 <!-- Insert before -->
 
 See:
