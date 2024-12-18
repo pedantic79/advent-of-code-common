@@ -1,21 +1,16 @@
 use ahash::HashMap;
 use aoc_runner_derive::{aoc, aoc_generator};
 use pathfinding::{matrix::directions, prelude::bfs, utils::move_in_direction};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::common::parse::parse_split_once;
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct Object {}
 
 #[aoc_generator(day18)]
 pub fn generator(input: &str) -> HashMap<(usize, usize), usize> {
     input
         .lines()
         .enumerate()
-        .map(|(i, l)| {
-            let (x, y) = parse_split_once(l, ',').unwrap();
-            ((y, x), i)
-        })
+        .map(|(i, l)| (parse_split_once(l, ',').unwrap(), i))
         .collect()
 }
 
@@ -29,13 +24,7 @@ fn solve_part1<const H: usize, const W: usize>(
             directions::DIRECTIONS_4
                 .into_iter()
                 .filter_map(move |direction| move_in_direction(state, direction, (H, W)))
-                .filter(|p| {
-                    if let Some(x) = corruptions.get(p) {
-                        *x >= limit
-                    } else {
-                        true
-                    }
-                })
+                .filter(|p| !corruptions.get(p).map(|x| *x < limit).unwrap_or(false))
         },
         |&(y, x)| y + 1 == H && x + 1 == W,
     )
@@ -48,14 +37,14 @@ pub fn part1(corruptions: &HashMap<(usize, usize), usize>) -> usize {
 
 #[aoc(day18, part2)]
 pub fn part2(corruptions: &HashMap<(usize, usize), usize>) -> String {
-    for cand in 1025..corruptions.len() {
-        if solve_part1::<71, 71>(corruptions, cand).is_none() {
-            let ans = corruptions.iter().find(|x| *x.1 == cand - 1).unwrap().0;
-            return format!("{},{}", ans.1, ans.0);
-        }
-    }
+    let ans = (1025..corruptions.len())
+        .into_par_iter()
+        .find_first(|&cand| solve_part1::<71, 71>(corruptions, cand).is_none())
+        .map(|cand| corruptions.iter().find(|x| *x.1 == cand - 1).unwrap().0)
+        .copied()
+        .unwrap();
 
-    panic!("no solution")
+    format!("{},{}", ans.0, ans.1)
 }
 
 #[cfg(test)]
