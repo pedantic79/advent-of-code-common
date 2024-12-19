@@ -1,6 +1,5 @@
 use aoc_runner_derive::{aoc, aoc_generator};
-use itertools::Itertools;
-use pathfinding::prelude::{bfs, count_paths};
+use pathfinding::prelude::{count_paths, dfs};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Input {
@@ -9,29 +8,29 @@ pub struct Input {
 }
 
 impl Input {
-    fn solve(&self, towels: String) -> Option<Vec<String>> {
-        bfs(
-            &towels,
-            |s: &String| {
+    fn solve1<'a>(&'a self, towels: &'a str) -> Option<Vec<&'a str>> {
+        dfs(
+            towels,
+            |s| {
                 self.towels
                     .iter()
-                    .filter_map(move |t| match_towels(t, s).map(|s| s.to_string()))
-                    .collect_vec()
+                    .filter_map(move |t| s.strip_prefix(t))
+                    .collect::<Vec<_>>()
             },
-            |s: &String| s.is_empty(),
+            |s: &&str| s.is_empty(),
         )
     }
 
-    fn solve_2(&self, towels: String) -> usize {
+    fn solve2(&self, towels: &str) -> usize {
         count_paths(
             towels,
-            |s: &String| {
+            |s| {
                 self.towels
                     .iter()
-                    .filter_map(move |t| match_towels(t, s).map(|s| s.to_string()))
-                    .collect_vec()
+                    .filter_map(move |t| s.strip_prefix(t))
+                    .collect::<Vec<_>>()
             },
-            |s: &String| s.is_empty(),
+            |s| s.is_empty(),
         )
     }
 }
@@ -46,26 +45,18 @@ pub fn generator(input: &str) -> Input {
     Input { towels, designs }
 }
 
-fn match_towels<'a>(towels: &'a str, design: &'a str) -> Option<&'a str> {
-    design.strip_prefix(towels)
-}
-
 #[aoc(day19, part1)]
 pub fn part1(inputs: &Input) -> usize {
     inputs
         .designs
         .iter()
-        .filter(|s| inputs.solve(s.to_string()).is_some())
+        .filter(|s: &&String| inputs.solve1(s).is_some())
         .count()
 }
 
 #[aoc(day19, part2)]
 pub fn part2(inputs: &Input) -> usize {
-    inputs
-        .designs
-        .iter()
-        .map(|s| inputs.solve_2(s.to_string()))
-        .sum()
+    inputs.designs.iter().map(|s| inputs.solve2(s)).sum()
 }
 
 #[cfg(test)]
@@ -104,15 +95,15 @@ bbrgwb";
         use super::*;
 
         const INPUT: &str = include_str!("../input/2024/day19.txt");
-        const ANSWERS: (usize, usize) = (0, 0);
+        const ANSWERS: (usize, usize) = (319, 692575723305545);
 
         #[test]
         pub fn test() {
             let input = INPUT.trim_end_matches('\n');
-            // let output = generator(input);
+            let output = generator(input);
 
-            // assert_eq!(part1(&output), ANSWERS.0);
-            // assert_eq!(part2(&output), ANSWERS.1);
+            assert_eq!(part1(&output), ANSWERS.0);
+            assert_eq!(part2(&output), ANSWERS.1);
         }
     }
 }
