@@ -36,6 +36,8 @@
   - [solution](src/day17.rs)
 - [Day 18: RAM Run](https://adventofcode.com/2024/day/18)
   - [solution](src/day18.rs)
+- [Day 19: Linen Layout](https://adventofcode.com/2024/day/19)
+  - [solution](src/day19.rs)
 <!-- Insert before -->
 
 See:
