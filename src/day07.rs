@@ -1,5 +1,6 @@
 use aoc_runner_derive::{aoc, aoc_generator};
 use num::PrimInt;
+use pathfinding::prelude::dfs;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 use crate::common::parse::parse_split;
@@ -30,16 +31,19 @@ pub fn part1(inputs: &[Math]) -> usize {
     inputs
         .iter()
         .map(|line| {
-            if pathfinding::directed::dfs::dfs(
-                (line.numbers[0], &line.numbers[1..]),
+            if dfs(
+                (line.numbers[0], 1),
                 |&(total, rest)| {
-                    if total > line.total || rest.is_empty() {
+                    if total > line.total || line.numbers.len() == rest {
                         vec![]
                     } else {
-                        vec![(total + rest[0], &rest[1..]), (total * rest[0], &rest[1..])]
+                        vec![
+                            (total + line.numbers[rest], rest + 1),
+                            (total * line.numbers[rest], rest + 1),
+                        ]
                     }
                 },
-                |&(total, rest)| total == line.total && rest.is_empty(),
+                |&(total, rest)| total == line.total && line.numbers.len() == rest,
             )
             .is_some()
             {
@@ -62,20 +66,20 @@ pub fn part2(inputs: &[Math]) -> usize {
     inputs
         .par_iter()
         .map(|line| {
-            if pathfinding::directed::dfs::dfs(
-                (line.numbers[0], &line.numbers[1..]),
+            if dfs(
+                (line.numbers[0], 1),
                 |&(total, rest)| {
-                    if total > line.total || rest.is_empty() {
+                    if total > line.total || line.numbers.len() == rest {
                         vec![]
                     } else {
                         vec![
-                            (total + rest[0], &rest[1..]),
-                            (total * rest[0], &rest[1..]),
-                            (concat(total, rest[0]), &rest[1..]),
+                            (total + line.numbers[rest], rest + 1),
+                            (total * line.numbers[rest], rest + 1),
+                            (concat(total, line.numbers[rest]), rest + 1),
                         ]
                     }
                 },
-                |&(total, rest)| total == line.total && rest.is_empty(),
+                |&(total, rest)| total == line.total && line.numbers.len() == rest,
             )
             .is_some()
             {
