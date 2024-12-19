@@ -8,17 +8,17 @@ pub struct Input {
 }
 
 impl Input {
-    fn solve1<'a>(&'a self, towel: &'a str) -> Option<Vec<&'a str>> {
+    fn solve1<'a>(&'a self, design: &'a str) -> Option<Vec<&'a str>> {
         dfs(
-            towel,
+            design,
             |&s| self.towels.iter().filter_map(move |t| s.strip_prefix(t)),
             |&s| s.is_empty(),
         )
     }
 
-    fn solve2(&self, towel: &str) -> usize {
+    fn solve2(&self, design: &str) -> usize {
         count_paths(
-            towel,
+            design,
             |&s| self.towels.iter().filter_map(move |t| s.strip_prefix(t)),
             |&s| s.is_empty(),
         )
