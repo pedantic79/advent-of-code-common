@@ -13,8 +13,8 @@ impl Input {
             return memo[start];
         }
 
-        for (i, pat) in self.towels.iter().enumerate().skip(1).take(start.len()) {
-            let (prefix, postfix) = start.split_at(i);
+        for (i, pat) in self.towels.iter().enumerate().take(start.len()) {
+            let (prefix, postfix) = start.split_at(i + 1);
 
             if pat.contains(prefix) && self.solve1(postfix, memo) {
                 memo.insert(start, true);
@@ -32,8 +32,8 @@ impl Input {
         }
 
         let mut combs = 0;
-        for (i, pat) in self.towels.iter().enumerate().skip(1).take(start.len()) {
-            let (prefix, postfix) = start.split_at(i);
+        for (i, pat) in self.towels.iter().enumerate().take(start.len()) {
+            let (prefix, postfix) = start.split_at(i + 1);
 
             if pat.contains(prefix) {
                 combs += self.solve2(postfix, memo);
@@ -55,14 +55,14 @@ pub fn generator(input: &str) -> Input {
         let len = s.len();
         let mut towel_len = towels.len();
 
-        // make sure we have enough two
-        while len + 1 > towel_len {
+        // make sure we have enough towels
+        while len > towel_len {
             towels.push(HashSet::new());
             towel_len += 1;
         }
-        assert!(towels.len() > s.len());
+        assert!(towels.len() >= s.len());
 
-        towels[len].insert(s);
+        towels[len - 1].insert(s);
     }
 
     let designs = b.lines().map(|s| s.to_string()).collect();
