@@ -1,5 +1,6 @@
 use aoc_runner_derive::{aoc, aoc_generator};
 use pathfinding::{matrix::directions, prelude::bfs, utils::move_in_direction};
+use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
 type Position = (usize, usize);
 
@@ -57,18 +58,19 @@ fn solve<const CHEAT: usize, const LIMIT: usize>(maze: &Maze) -> usize {
     )
     .unwrap();
 
-    let mut count = 0;
-
-    for (i, first) in path.iter().enumerate() {
-        for (j, second) in path.iter().enumerate().skip(i + LIMIT + 2) {
-            let dist = first.0.abs_diff(second.0) + first.1.abs_diff(second.1);
-            if dist <= CHEAT && (j - i) - dist >= LIMIT {
-                count += 1;
-            }
-        }
-    }
-
-    count
+    path.par_iter()
+        .enumerate()
+        .map(|(i, first)| {
+            path.iter()
+                .enumerate()
+                .skip(i + LIMIT + 2)
+                .filter(|(j, second)| {
+                    let dist = first.0.abs_diff(second.0) + first.1.abs_diff(second.1);
+                    dist <= CHEAT && (j - i) - dist >= LIMIT
+                })
+                .count()
+        })
+        .sum()
 }
 
 #[aoc(day20, part1)]
