@@ -1,9 +1,10 @@
+use aho_corasick::AhoCorasick;
 use aoc_runner_derive::{aoc, aoc_generator};
 use pathfinding::prelude::{count_paths, dfs};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct Input {
-    towels: Vec<String>,
+    towels: AhoCorasick,
     designs: Vec<String>,
 }
 
@@ -11,7 +12,11 @@ impl Input {
     fn solve1<'a>(&'a self, design: &'a str) -> Option<Vec<&'a str>> {
         dfs(
             design,
-            |&s| self.towels.iter().filter_map(move |t| s.strip_prefix(t)),
+            |&s| {
+                self.towels
+                    .find_overlapping_iter(s)
+                    .filter_map(|x| Some(&s[x.end()..]).filter(|_| x.start() == 0))
+            },
             |&s| s.is_empty(),
         )
     }
@@ -19,7 +24,11 @@ impl Input {
     fn solve2(&self, design: &str) -> usize {
         count_paths(
             design,
-            |&s| self.towels.iter().filter_map(move |t| s.strip_prefix(t)),
+            |&s| {
+                self.towels
+                    .find_overlapping_iter(s)
+                    .filter_map(|x| Some(&s[x.end()..]).filter(|_| x.start() == 0))
+            },
             |&s| s.is_empty(),
         )
     }
@@ -29,7 +38,7 @@ impl Input {
 pub fn generator(input: &str) -> Input {
     let (a, b) = input.split_once("\n\n").unwrap();
 
-    let towels = a.split(", ").map(|s| s.to_string()).collect();
+    let towels = AhoCorasick::new(a.split(", ")).unwrap();
     let designs = b.lines().map(|s| s.to_string()).collect();
 
     Input { towels, designs }

@@ -7,6 +7,7 @@ name = "advent-of-code-2024"
 version = "0.1.0"
 dependencies = [
  "ahash",
+ "aho-corasick",
  "aoc-runner",
  "aoc-runner-derive",
  "arrayvec",
