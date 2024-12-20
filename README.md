@@ -38,6 +38,8 @@
   - [solution](src/day18.rs)
 - [Day 19: Linen Layout](https://adventofcode.com/2024/day/19)
   - [solution](src/day19.rs)
+- [Day 20: Race Condition](https://adventofcode.com/2024/day/20)
+  - [solution](src/day20.rs)
 <!-- Insert before -->
 
 See:
