@@ -42,8 +42,7 @@ pub fn generator(input: &str) -> Maze {
     Maze { start, end, map }
 }
 
-#[aoc(day20, part1)]
-pub fn part1(maze: &Maze) -> usize {
+fn solve<const CHEAT: usize, const LIMIT: usize>(maze: &Maze) -> usize {
     let path = bfs(
         &maze.start,
         |&pos| {
@@ -61,9 +60,9 @@ pub fn part1(maze: &Maze) -> usize {
     let mut count = 0;
 
     for (i, first) in path.iter().enumerate() {
-        for (j, second) in path.iter().enumerate().skip(i + 102) {
+        for (j, second) in path.iter().enumerate().skip(i + LIMIT + 2) {
             let dist = first.0.abs_diff(second.0) + first.1.abs_diff(second.1);
-            if dist <= 2 && (j - i) - dist >= 100 {
+            if dist <= CHEAT && (j - i) - dist >= LIMIT {
                 count += 1;
             }
         }
@@ -72,34 +71,14 @@ pub fn part1(maze: &Maze) -> usize {
     count
 }
 
+#[aoc(day20, part1)]
+pub fn part1(maze: &Maze) -> usize {
+    solve::<2, 100>(maze)
+}
+
 #[aoc(day20, part2)]
 pub fn part2(maze: &Maze) -> usize {
-    let path = bfs(
-        &maze.start,
-        |&pos| {
-            directions::DIRECTIONS_4
-                .into_iter()
-                .filter_map(move |dir| {
-                    move_in_direction(pos, dir, (maze.map.len(), maze.map[0].len()))
-                })
-                .filter(|new_pos| maze.get_pos(*new_pos) != Some(b'#'))
-        },
-        |pos| pos.0 == maze.end.0 && pos.1 == maze.end.1,
-    )
-    .unwrap();
-
-    let mut count = 0;
-
-    for (i, first) in path.iter().enumerate() {
-        for (j, second) in path.iter().enumerate().skip(i + 102) {
-            let dist = first.0.abs_diff(second.0) + first.1.abs_diff(second.1);
-            if dist <= 20 && (j - i) - dist >= 100 {
-                count += 1;
-            }
-        }
-    }
-
-    count
+    solve::<20, 100>(maze)
 }
 
 #[cfg(test)]
@@ -131,12 +110,12 @@ mod tests {
 
     #[test]
     pub fn part1_test() {
-        // assert_eq!(part1(&generator(SAMPLE)), 44);
+        assert_eq!(solve::<2, 2>(&generator(SAMPLE)), 44);
     }
 
     #[test]
     pub fn part2_test() {
-        // assert_eq!(part2(&generator(SAMPLE)), 336);
+        assert_eq!(solve::<20, 50>(&generator(SAMPLE)), 285);
     }
 
     mod regression {
