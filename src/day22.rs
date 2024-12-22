@@ -1,6 +1,7 @@
 use ahash::{HashMap, HashMapExt};
 use aoc_runner_derive::{aoc, aoc_generator};
 use itertools::{iterate, Itertools};
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 use crate::common::parse::parse_lines;
 
@@ -26,15 +27,15 @@ pub fn part1(inputs: &[u64]) -> u64 {
 
 #[aoc(day22, part2)]
 pub fn part2(inputs: &[u64]) -> u64 {
-    let v = inputs.iter().map(|n| {
+    let v = inputs.par_iter().map(|n| {
         iterate(*n, |s| secret_number(*s))
             .map(|n| n % 10)
-            .take(2001)
+            .take(2000)
             .collect_vec()
     });
 
-    let mut scores = HashMap::new();
-    for w in v {
+    let scores = dashmap::DashMap::new();
+    v.for_each(|w| {
         let mut ans = HashMap::new();
 
         let diffs = w
@@ -51,9 +52,9 @@ pub fn part2(inputs: &[u64]) -> u64 {
         for (&k, v) in ans.iter() {
             *scores.entry(k).or_insert(0) += v;
         }
-    }
+    });
 
-    scores.values().max().copied().unwrap()
+    scores.iter().map(|x| *x.value()).max().unwrap()
 }
 
 #[cfg(test)]
