@@ -40,6 +40,10 @@
   - [solution](src/day19.rs)
 - [Day 20: Race Condition](https://adventofcode.com/2024/day/20)
   - [solution](src/day20.rs)
+- [Day 21: Keypad Conundrum](https://adventofcode.com/2024/day/21)
+  - [solution](src/day21.rs)
+- [Day 22: Monkey Market](https://adventofcode.com/2024/day/22)
+  - [solution](src/day22.rs)
 <!-- Insert before -->
 
 See:
