@@ -26,7 +26,6 @@ pub fn part1(inputs: &[i64]) -> i64 {
                 .last()
                 .unwrap()
         })
-        .inspect(|x| println!("{x}"))
         .sum()
 }
 
@@ -43,7 +42,7 @@ pub fn part2(inputs: &[i64]) -> i64 {
         .collect_vec();
 
     let mut scores = HashMap::new();
-    for (j, w) in v.iter().enumerate() {
+    for w in v.iter() {
         let mut ans = HashMap::new();
         let diff = w.iter().tuple_windows().map(|(x, y)| y - x).collect_vec();
         for (i, pattern) in diff.windows(4).enumerate() {
