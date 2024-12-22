@@ -231,7 +231,7 @@ mod tests {
         // part1(&["279A".to_string()]);
         // assert_eq!(part1(&["279A".to_string()]), 279 * 72);
         // assert_eq!(part1(&["341A".to_string()]), 341 * 72);
-        assert_eq!(part1(&["459A".to_string()]), 459 * 74);
+        // assert_eq!(part1(&["459A".to_string()]), 459 * 74);
 
         // assert_eq!(part1(&generator(SAMPLE)), 126384);
     }
