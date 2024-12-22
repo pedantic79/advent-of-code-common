@@ -21,7 +21,7 @@ fn secret_number(mut s: u64) -> u64 {
 #[aoc(day22, part1)]
 pub fn part1(inputs: &[u64]) -> u64 {
     inputs
-        .iter()
+        .par_iter()
         .map(|n| iterate(*n, |s| secret_number(*s)).nth(2000).unwrap())
         .sum()
 }
