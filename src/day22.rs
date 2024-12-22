@@ -5,11 +5,11 @@ use itertools::{iterate, Itertools};
 use crate::common::parse::parse_lines;
 
 #[aoc_generator(day22)]
-pub fn generator(input: &str) -> Vec<i64> {
+pub fn generator(input: &str) -> Vec<u64> {
     parse_lines(input)
 }
 
-fn secret_number(mut s: i64) -> i64 {
+fn secret_number(mut s: u64) -> u64 {
     s = ((s * 64) ^ s) % 16777216;
     s = ((s / 32) ^ s) % 16777216;
     s = ((s * 2048) ^ s) % 16777216;
@@ -17,42 +17,39 @@ fn secret_number(mut s: i64) -> i64 {
 }
 
 #[aoc(day22, part1)]
-pub fn part1(inputs: &[i64]) -> i64 {
+pub fn part1(inputs: &[u64]) -> u64 {
     inputs
         .iter()
-        .map(|n| {
-            iterate(*n, |s| secret_number(*s))
-                .take(2001)
-                .last()
-                .unwrap()
-        })
+        .map(|n| iterate(*n, |s| secret_number(*s)).nth(2000).unwrap())
         .sum()
 }
 
 #[aoc(day22, part2)]
-pub fn part2(inputs: &[i64]) -> i64 {
-    let v = inputs
-        .iter()
-        .map(|n| {
-            iterate(*n, |s| secret_number(*s))
-                .take(2001)
-                .map(|n| n % 10)
-                .collect_vec()
-        })
-        .collect_vec();
+pub fn part2(inputs: &[u64]) -> u64 {
+    let v = inputs.iter().map(|n| {
+        iterate(*n, |s| secret_number(*s))
+            .map(|n| n % 10)
+            .take(2001)
+            .collect_vec()
+    });
 
     let mut scores = HashMap::new();
-    for w in v.iter() {
+    for w in v {
         let mut ans = HashMap::new();
-        let diff = w.iter().tuple_windows().map(|(x, y)| y - x).collect_vec();
-        for (i, pattern) in diff.windows(4).enumerate() {
-            if !ans.contains_key(pattern) {
-                ans.insert(pattern, w[i + 4]);
-            }
+
+        let diffs = w
+            .iter()
+            .tuple_windows()
+            .map(|(&x, &y)| y as i64 - x as i64)
+            .tuple_windows()
+            .enumerate();
+
+        for (i, pattern @ (_, _, _, _)) in diffs {
+            ans.entry(pattern).or_insert(w[i + 4]);
         }
 
-        for (k, v) in ans.iter() {
-            *scores.entry(k.to_vec()).or_insert(0) += v;
+        for (&k, v) in ans.iter() {
+            *scores.entry(k).or_insert(0) += v;
         }
     }
 
@@ -94,7 +91,7 @@ mod tests {
         use super::*;
 
         const INPUT: &str = include_str!("../input/2024/day22.txt");
-        const ANSWERS: (i64, i64) = (16619522798, 1854);
+        const ANSWERS: (u64, u64) = (16619522798, 1854);
 
         #[test]
         pub fn test() {
