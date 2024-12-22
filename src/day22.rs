@@ -1,5 +1,6 @@
 use ahash::{HashMap, HashMapExt};
 use aoc_runner_derive::{aoc, aoc_generator};
+use dashmap::DashMap;
 use itertools::{iterate, Itertools};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
@@ -30,18 +31,18 @@ pub fn part2(inputs: &[u64]) -> u64 {
     let v = inputs.par_iter().map(|n| {
         iterate(*n, |s| secret_number(*s))
             .map(|n| n % 10)
-            .take(2000)
+            .take(2001)
             .collect_vec()
     });
 
-    let scores = dashmap::DashMap::new();
+    let scores = DashMap::new();
     v.for_each(|w| {
         let mut ans = HashMap::new();
 
         let diffs = w
             .iter()
             .tuple_windows()
-            .map(|(&x, &y)| y as i64 - x as i64)
+            .map(|(&x, &y)| y as i8 - x as i8)
             .tuple_windows()
             .enumerate();
 
