@@ -28,34 +28,34 @@ pub fn part1(inputs: &[u64]) -> u64 {
 
 #[aoc(day22, part2)]
 pub fn part2(inputs: &[u64]) -> u64 {
-    let v = inputs.par_iter().map(|n| {
+    let seqs = inputs.par_iter().map(|n| {
         iterate(*n, |s| secret_number(*s))
             .map(|n| n % 10)
             .take(2001)
             .collect_vec()
     });
 
-    let scores = DashMap::new();
-    v.for_each(|w| {
-        let mut ans = HashMap::new();
+    let all = DashMap::new();
+    seqs.for_each(|seq| {
+        let mut monkey = HashMap::new();
 
-        let diffs = w
+        let diff_windows = seq
             .iter()
             .tuple_windows()
             .map(|(&x, &y)| y as i8 - x as i8)
             .tuple_windows()
             .enumerate();
 
-        for (i, pattern @ (_, _, _, _)) in diffs {
-            ans.entry(pattern).or_insert(w[i + 4]);
+        for (i, pattern @ (_, _, _, _)) in diff_windows {
+            monkey.entry(pattern).or_insert(seq[i + 4]);
         }
 
-        for (&k, v) in ans.iter() {
-            *scores.entry(k).or_insert(0) += v;
+        for (&k, v) in monkey.iter() {
+            *all.entry(k).or_insert(0) += v;
         }
     });
 
-    scores.iter().map(|x| *x.value()).max().unwrap()
+    all.iter().map(|x| *x.value()).max().unwrap()
 }
 
 #[cfg(test)]
