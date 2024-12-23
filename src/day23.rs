@@ -1,5 +1,3 @@
-use std::fmt::Write;
-
 use ahash::{HashMapExt, HashSetExt};
 use aoc_runner_derive::{aoc, aoc_generator};
 use itertools::Itertools;
@@ -61,23 +59,30 @@ pub fn part1(graph: &UnGraph<SStr, ()>) -> usize {
 fn bron_kerbosch(
     graph: &UnGraph<SStr, ()>,
     r: &mut HashSet<NodeIndex>,
-    p: &mut HashSet<NodeIndex>,
-    x: &mut HashSet<NodeIndex>,
-    cliques: &mut Vec<HashSet<NodeIndex>>,
+    mut p: HashSet<NodeIndex>,
+    mut x: HashSet<NodeIndex>,
+    max_clique: &mut HashSet<NodeIndex>,
 ) {
     if p.is_empty() && x.is_empty() {
-        cliques.push(r.clone());
+        if r.len() > max_clique.len() {
+            max_clique.clear();
+            max_clique.extend(r.iter());
+        }
         return;
     }
 
-    for &v in p.clone().iter() {
+    let pivot = p.union(&x).next().copied().unwrap();
+    let pivot_neighbors: HashSet<_> = graph.neighbors(pivot).collect();
+    let p_minus_neighbors: HashSet<_> = p.difference(&pivot_neighbors).copied().collect();
+
+    for v in p_minus_neighbors {
         r.insert(v);
 
         let neighbors: HashSet<_> = graph.neighbors(v).collect();
-        let mut p_new = p.intersection(&neighbors).copied().collect();
-        let mut x_new = x.intersection(&neighbors).copied().collect();
+        let p_new = p.intersection(&neighbors).copied().collect();
+        let x_new = x.intersection(&neighbors).copied().collect();
 
-        bron_kerbosch(graph, r, &mut p_new, &mut x_new, cliques);
+        bron_kerbosch(graph, r, p_new, x_new, max_clique);
 
         r.remove(&v);
         p.remove(&v);
@@ -87,37 +92,24 @@ fn bron_kerbosch(
 
 #[aoc(day23, part2)]
 pub fn part2(graph: &UnGraph<SStr, ()>) -> String {
-    let mut cliques = Vec::new();
-    {
-        let mut r = HashSet::new();
-        let mut p = graph.node_indices().collect();
-        let mut x = HashSet::new();
+    let mut max_clique = HashSet::new();
 
-        bron_kerbosch(graph, &mut r, &mut p, &mut x, &mut cliques);
-    }
+    bron_kerbosch(
+        graph,
+        &mut HashSet::new(),
+        graph.node_indices().collect(),
+        HashSet::new(),
+        &mut max_clique,
+    );
 
-    let max = cliques
+    max_clique
         .into_iter()
-        .max_by_key(|clique| clique.len())
-        .unwrap()
-        .into_iter()
-        .map(|idx| graph.node_weight(idx).unwrap())
+        .map(|idx| unsafe {
+            // SAFETY: node_weight's are all [u8; 2] and unicode
+            std::str::from_utf8_unchecked(graph.node_weight(idx).unwrap().as_slice())
+        })
         .sorted_unstable()
-        .collect_vec();
-
-    let mut buf = String::with_capacity(max.len() * 2);
-    buf.write_fmt(format_args!(
-        "{}{}",
-        char::from(max[0][0]),
-        char::from(max[0][1])
-    ))
-    .unwrap();
-    for n in &max[1..] {
-        buf.write_fmt(format_args!(",{}{}", char::from(n[0]), char::from(n[1])))
-            .unwrap();
-    }
-
-    buf
+        .join(",")
 }
 
 #[cfg(test)]
