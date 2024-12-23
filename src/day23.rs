@@ -1,16 +1,12 @@
 use std::fmt::Write;
 
-use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
+use ahash::{HashMapExt, HashSetExt};
 use aoc_runner_derive::{aoc, aoc_generator};
 use itertools::Itertools;
+use petgraph::graph::{NodeIndex, UnGraph};
+use rustc_hash::{FxHashMap as HashMap, FxHashSet as HashSet};
 
 type SStr = [u8; 2];
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct Object {
-    connections: HashMap<SStr, HashSet<SStr>>,
-    keys: Vec<SStr>,
-}
 
 fn from_s(s: &str) -> [u8; 2] {
     assert_eq!(s.len(), 2);
@@ -22,89 +18,94 @@ fn from_s(s: &str) -> [u8; 2] {
 }
 
 #[aoc_generator(day23)]
-pub fn generator(input: &str) -> Object {
-    let mut connections = HashMap::new();
+pub fn generator(input: &str) -> UnGraph<SStr, ()> {
+    let mut graph = UnGraph::<SStr, ()>::new_undirected();
+    let mut node_map = HashMap::new();
 
-    for (a, b) in input.lines().map(|l| {
-        l.split_once('-')
-            .map(|(x, y)| (from_s(x), from_s(y)))
-            .unwrap()
-    }) {
-        connections.entry(a).or_insert_with(HashSet::new).insert(b);
-        connections.entry(b).or_insert_with(HashSet::new).insert(a);
+    for line in input.lines() {
+        let (a, b) = line.split_once('-').unwrap();
+        let a = from_s(a);
+        let b = from_s(b);
+
+        let node1 = *node_map.entry(a).or_insert_with(|| graph.add_node(a));
+        let node2 = *node_map.entry(b).or_insert_with(|| graph.add_node(b));
+        graph.add_edge(node1, node2, ());
     }
 
-    let keys = connections.keys().cloned().collect();
-
-    Object { connections, keys }
+    graph
 }
 
 #[aoc(day23, part1)]
-pub fn part1(inputs: &Object) -> usize {
-    let mut count = 0;
-    let graph = &inputs.connections;
-    for (n1, n2, n3) in inputs.keys.iter().tuple_combinations() {
-        if graph.get(n1).unwrap_or(&HashSet::new()).contains(n2)
-            && graph.get(n1).unwrap_or(&HashSet::new()).contains(n3)
-            && graph.get(n2).unwrap_or(&HashSet::new()).contains(n3)
-            && [n1, n2, n3].iter().any(|s| s[0] == b't')
-        {
-            count += 1;
+pub fn part1(graph: &UnGraph<SStr, ()>) -> usize {
+    let mut triangles = HashSet::new();
+
+    for edge in graph.edge_indices() {
+        let (a, b) = graph.edge_endpoints(edge).unwrap();
+        let neighbors_b: HashSet<_> = graph.neighbors(b).collect();
+
+        for c in graph.neighbors(a) {
+            if neighbors_b.contains(&c) {
+                let mut triangle = [a, b, c];
+                triangle.sort();
+                triangles.insert(triangle);
+            }
         }
     }
 
-    count
+    triangles
+        .into_iter()
+        .filter(|v| v.iter().any(|x| graph.node_weight(*x).unwrap()[0] == b't'))
+        .count()
 }
 
 fn bron_kerbosch(
-    graph: &HashMap<SStr, HashSet<SStr>>,
-    r: &mut HashSet<SStr>,
-    p: &mut HashSet<SStr>,
-    x: &mut HashSet<SStr>,
-    cliques: &mut Vec<HashSet<SStr>>,
+    graph: &UnGraph<SStr, ()>,
+    r: &mut HashSet<NodeIndex>,
+    p: &mut HashSet<NodeIndex>,
+    x: &mut HashSet<NodeIndex>,
+    cliques: &mut Vec<HashSet<NodeIndex>>,
 ) {
     if p.is_empty() && x.is_empty() {
         cliques.push(r.clone());
         return;
     }
 
-    let p_clone = p.clone();
-    for node in p_clone.iter() {
-        r.insert(*node);
-        let neighbors = graph.get(node).cloned().unwrap_or(HashSet::new());
-        let mut new_p = p.intersection(&neighbors).cloned().collect();
-        let mut new_x = x.intersection(&neighbors).cloned().collect();
+    for &v in p.clone().iter() {
+        r.insert(v);
 
-        bron_kerbosch(graph, r, &mut new_p, &mut new_x, cliques);
+        let neighbors: HashSet<_> = graph.neighbors(v).collect();
+        let mut p_new = p.intersection(&neighbors).copied().collect();
+        let mut x_new = x.intersection(&neighbors).copied().collect();
 
-        r.remove(node);
-        p.remove(node);
-        x.insert(*node);
+        bron_kerbosch(graph, r, &mut p_new, &mut x_new, cliques);
+
+        r.remove(&v);
+        p.remove(&v);
+        x.insert(v);
     }
 }
 
 #[aoc(day23, part2)]
-pub fn part2(inputs: &Object) -> String {
-    let graph = &inputs.connections;
-
+pub fn part2(graph: &UnGraph<SStr, ()>) -> String {
     let mut cliques = Vec::new();
-    let mut r = HashSet::new();
-    let mut p = graph.keys().cloned().collect();
-    let mut x = HashSet::new();
-    bron_kerbosch(graph, &mut r, &mut p, &mut x, &mut cliques);
+    {
+        let mut r = HashSet::new();
+        let mut p = graph.node_indices().collect();
+        let mut x = HashSet::new();
 
-    let mut max = cliques
+        bron_kerbosch(graph, &mut r, &mut p, &mut x, &mut cliques);
+    }
+
+    let max = cliques
         .into_iter()
         .max_by_key(|clique| clique.len())
         .unwrap()
         .into_iter()
+        .map(|idx| graph.node_weight(idx).unwrap())
+        .sorted_unstable()
         .collect_vec();
 
-    max.sort_unstable();
-
-    // This avoids allocating a vec, and extra strings.
     let mut buf = String::with_capacity(max.len() * 2);
-
     buf.write_fmt(format_args!(
         "{}{}",
         char::from(max[0][0]),
