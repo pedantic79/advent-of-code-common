@@ -6,13 +6,8 @@ use rustc_hash::{FxHashMap as HashMap, FxHashSet as HashSet};
 
 type SStr = [u8; 2];
 
-fn from_s(s: &str) -> [u8; 2] {
-    assert_eq!(s.len(), 2);
-
-    let mut res = [b' '; 2];
-    res.clone_from_slice(s.as_bytes());
-
-    res
+fn from_s(s: &str) -> SStr {
+    s.as_bytes().try_into().unwrap()
 }
 
 #[aoc_generator(day23)]
@@ -44,7 +39,7 @@ pub fn part1(graph: &UnGraph<SStr, ()>) -> usize {
         for c in graph.neighbors(a) {
             if neighbors_b.contains(&c) {
                 let mut triangle = [a, b, c];
-                triangle.sort();
+                triangle.sort_unstable();
                 triangles.insert(triangle);
             }
         }
@@ -96,9 +91,9 @@ pub fn part2(graph: &UnGraph<SStr, ()>) -> String {
 
     bron_kerbosch(
         graph,
-        &mut HashSet::new(),
+        &mut Default::default(),
         graph.node_indices().collect(),
-        HashSet::new(),
+        Default::default(),
         &mut max_clique,
     );
 
