@@ -1,14 +1,24 @@
+use std::fmt::Write;
+
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use aoc_runner_derive::{aoc, aoc_generator};
 use itertools::Itertools;
-use smallstr::SmallString;
 
-type SStr = SmallString<[u8; 2]>;
+type SStr = [u8; 2];
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Object {
     connections: HashMap<SStr, HashSet<SStr>>,
     keys: Vec<SStr>,
+}
+
+fn from_s(s: &str) -> [u8; 2] {
+    assert_eq!(s.len(), 2);
+
+    let mut res = [b' '; 2];
+    res.clone_from_slice(s.as_bytes());
+
+    res
 }
 
 #[aoc_generator(day23)]
@@ -17,13 +27,10 @@ pub fn generator(input: &str) -> Object {
 
     for (a, b) in input.lines().map(|l| {
         l.split_once('-')
-            .map(|(x, y)| (SStr::from(x), SStr::from(y)))
+            .map(|(x, y)| (from_s(x), from_s(y)))
             .unwrap()
     }) {
-        connections
-            .entry(a.clone())
-            .or_insert_with(HashSet::new)
-            .insert(b.clone());
+        connections.entry(a).or_insert_with(HashSet::new).insert(b);
         connections.entry(b).or_insert_with(HashSet::new).insert(a);
     }
 
@@ -34,30 +41,19 @@ pub fn generator(input: &str) -> Object {
 
 #[aoc(day23, part1)]
 pub fn part1(inputs: &Object) -> usize {
-    let mut triangles = Vec::new();
-    let nodes = &inputs.keys;
+    let mut count = 0;
     let graph = &inputs.connections;
-    for i in 0..nodes.len() {
-        for j in i + 1..nodes.len() {
-            for k in j + 1..nodes.len() {
-                let n1 = nodes[i].clone();
-                let n2 = nodes[j].clone();
-                let n3 = nodes[k].clone();
-
-                if graph.get(&n1).unwrap_or(&HashSet::new()).contains(&n2)
-                    && graph.get(&n1).unwrap_or(&HashSet::new()).contains(&n3)
-                    && graph.get(&n2).unwrap_or(&HashSet::new()).contains(&n3)
-                {
-                    triangles.push([n1, n2, n3]);
-                }
-            }
+    for (n1, n2, n3) in inputs.keys.iter().tuple_combinations() {
+        if graph.get(n1).unwrap_or(&HashSet::new()).contains(n2)
+            && graph.get(n1).unwrap_or(&HashSet::new()).contains(n3)
+            && graph.get(n2).unwrap_or(&HashSet::new()).contains(n3)
+            && [n1, n2, n3].iter().any(|s| s[0] == b't')
+        {
+            count += 1;
         }
     }
 
-    triangles
-        .iter()
-        .filter(|v| v.iter().any(|s| s.starts_with('t')))
-        .count()
+    count
 }
 
 fn bron_kerbosch(
@@ -74,16 +70,16 @@ fn bron_kerbosch(
 
     let p_clone = p.clone();
     for node in p_clone.iter() {
-        r.insert(node.clone());
+        r.insert(*node);
         let neighbors = graph.get(node).cloned().unwrap_or(HashSet::new());
-        let mut new_p: HashSet<SStr> = p.intersection(&neighbors).cloned().collect();
-        let mut new_x: HashSet<SStr> = x.intersection(&neighbors).cloned().collect();
+        let mut new_p = p.intersection(&neighbors).cloned().collect();
+        let mut new_x = x.intersection(&neighbors).cloned().collect();
 
         bron_kerbosch(graph, r, &mut new_p, &mut new_x, cliques);
 
         r.remove(node);
         p.remove(node);
-        x.insert(node.clone());
+        x.insert(*node);
     }
 }
 
@@ -97,13 +93,30 @@ pub fn part2(inputs: &Object) -> String {
     let mut x = HashSet::new();
     bron_kerbosch(graph, &mut r, &mut p, &mut x, &mut cliques);
 
-    cliques
+    let mut max = cliques
         .into_iter()
         .max_by_key(|clique| clique.len())
         .unwrap()
         .into_iter()
-        .sorted()
-        .join(",")
+        .collect_vec();
+
+    max.sort_unstable();
+
+    // This avoids allocating a vec, and extra strings.
+    let mut buf = String::with_capacity(max.len() * 2);
+
+    buf.write_fmt(format_args!(
+        "{}{}",
+        char::from(max[0][0]),
+        char::from(max[0][1])
+    ))
+    .unwrap();
+    for n in &max[1..] {
+        buf.write_fmt(format_args!(",{}{}", char::from(n[0]), char::from(n[1])))
+            .unwrap();
+    }
+
+    buf
 }
 
 #[cfg(test)]
