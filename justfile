@@ -7,3 +7,6 @@ cherry-pick commit:
     cargo aoc
     just commit-input
     git commit --amend --no-edit -a
+samply day part:
+    cargo aoc --profile -d {{day}} -p {{part}}
+    samply record -r 1000000000 /Users/dnn/.cargo-target/release/aoc-autobuild
