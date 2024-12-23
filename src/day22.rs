@@ -1,4 +1,6 @@
-use ahash::{HashMap, HashMapExt};
+use std::hash::BuildHasherDefault;
+
+use ahash::{AHasher, HashMap, HashMapExt};
 use aoc_runner_derive::{aoc, aoc_generator};
 use dashmap::DashMap;
 use itertools::{iterate, Itertools};
@@ -35,7 +37,7 @@ pub fn part2(inputs: &[u64]) -> u64 {
             .collect_vec()
     });
 
-    let all = DashMap::new();
+    let all = DashMap::with_hasher(BuildHasherDefault::<AHasher>::default());
     seqs.for_each(|seq| {
         let mut monkey = HashMap::new();
 
