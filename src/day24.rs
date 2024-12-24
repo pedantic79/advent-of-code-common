@@ -21,7 +21,7 @@ impl std::fmt::Debug for SStr {
 
 impl SStr {
     fn as_str(&self) -> &str {
-        // SAFETY: node_weight's are all [u8; 2] and ascii
+        // SAFETY: node_weight's are all [u8; 3] and ascii
         unsafe { std::str::from_utf8_unchecked(self.0.as_slice()) }
     }
 
@@ -32,6 +32,9 @@ impl SStr {
     fn make_wire(start: u8, number: u8) -> Self {
         let a = number / 10;
         let b = number % 10;
+
+        assert!(a < 10);
+        assert!(b < 10);
 
         Self([start, b'0' + a, b'0' + b])
     }
@@ -146,7 +149,7 @@ pub fn part1(inputs: &HashMap<SStr, Kind>) -> u64 {
 
 #[aoc(day24, part2)]
 pub fn part2(inputs: &HashMap<SStr, Kind>) -> String {
-    // When visualizing the input, it is a full-adder
+    // When visualizing the input, you will see that it is a full-adder
     // with xNN and yNN as the input bit, and zNN is the output bit
     //
     // The following operations in one step of a full adder
@@ -154,14 +157,14 @@ pub fn part2(inputs: &HashMap<SStr, Kind>) -> String {
     // x[n] & y[n] => xyCARRY[n]
     // xyADD[n] ^ CARRY[n - 1] => z[n]
     // xyADD[n] & CARRY[n - 1] => AND[n]
-    // xyCARRY[n] | xyADDandCARRY => CARRY[n]
+    // xyCARRY[n] | AND[n] => CARRY[n]
 
     let mut wrongs: Vec<&SStr> = Vec::with_capacity(8);
     let mut xy_adds = Vec::with_capacity(45);
     let mut xy_carries = Vec::with_capacity(45);
+    let mut z: Vec<(SStr, SStr, SStr)> = Vec::with_capacity(45);
     let mut ands = Vec::with_capacity(45);
     let mut carries = Vec::with_capacity(45);
-    let mut z = Vec::with_capacity(45);
 
     for rule in inputs.iter() {
         let rule = (*rule.0, *rule.1);
@@ -332,15 +335,15 @@ tnw OR pbm -> gnj";
         use super::*;
 
         const INPUT: &str = include_str!("../input/2024/day24.txt");
-        const ANSWERS: (usize, usize) = (0, 0);
+        const ANSWERS: (u64, &str) = (57632654722854, "ckj,dbp,fdv,kdf,rpp,z15,z23,z39");
 
         #[test]
         pub fn test() {
             let input = INPUT.trim_end_matches('\n');
-            // let output = generator(input);
+            let output = generator(input);
 
-            // assert_eq!(part1(&output), ANSWERS.0);
-            // assert_eq!(part2(&output), ANSWERS.1);
+            assert_eq!(part1(&output), ANSWERS.0);
+            assert_eq!(part2(&output), ANSWERS.1);
         }
     }
 }
