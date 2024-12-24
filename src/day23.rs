@@ -4,21 +4,37 @@ use itertools::Itertools;
 use petgraph::graph::{NodeIndex, UnGraph};
 use rustc_hash::{FxHashMap as HashMap, FxHashSet as HashSet};
 
-type SStr = [u8; 2];
+use crate::common::parse::parse_split_once;
 
-fn from_s(s: &str) -> SStr {
-    s.as_bytes().try_into().unwrap()
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub struct SStr([u8; 2]);
+
+impl std::str::FromStr for SStr {
+    type Err = std::array::TryFromSliceError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        s.as_bytes().try_into().map(Self)
+    }
+}
+
+impl SStr {
+    fn as_str(&self) -> &str {
+        // SAFETY: node_weight's are all [u8; 2] and ascii
+        unsafe { std::str::from_utf8_unchecked(self.0.as_slice()) }
+    }
+
+    fn starts_with(&self, p: u8) -> bool {
+        self.0[0] == p
+    }
 }
 
 #[aoc_generator(day23)]
 pub fn generator(input: &str) -> UnGraph<SStr, ()> {
-    let mut graph = UnGraph::<SStr, ()>::new_undirected();
+    let mut graph = UnGraph::new_undirected();
     let mut node_map = HashMap::new();
 
     for line in input.lines() {
-        let (a, b) = line.split_once('-').unwrap();
-        let a = from_s(a);
-        let b = from_s(b);
+        let (a, b) = parse_split_once(line, '-').unwrap();
 
         let node1 = *node_map.entry(a).or_insert_with(|| graph.add_node(a));
         let node2 = *node_map.entry(b).or_insert_with(|| graph.add_node(b));
@@ -34,21 +50,24 @@ pub fn part1(graph: &UnGraph<SStr, ()>) -> usize {
 
     for edge in graph.edge_indices() {
         let (a, b) = graph.edge_endpoints(edge).unwrap();
-        let neighbors_b: HashSet<_> = graph.neighbors(b).collect();
+        let neighbors_a: HashSet<_> = graph.neighbors(a).collect();
 
-        for c in graph.neighbors(a) {
-            if neighbors_b.contains(&c) {
+        for c in graph.neighbors(b) {
+            if neighbors_a.contains(&c) {
                 let mut triangle = [a, b, c];
-                triangle.sort_unstable();
-                triangles.insert(triangle);
+
+                if triangle
+                    .iter()
+                    .any(|x| graph.node_weight(*x).unwrap().starts_with(b't'))
+                {
+                    triangle.sort_unstable();
+                    triangles.insert(triangle);
+                }
             }
         }
     }
 
-    triangles
-        .into_iter()
-        .filter(|v| v.iter().any(|x| graph.node_weight(*x).unwrap()[0] == b't'))
-        .count()
+    triangles.len()
 }
 
 fn bron_kerbosch(
@@ -67,13 +86,12 @@ fn bron_kerbosch(
     }
 
     let pivot = p.union(&x).next().copied().unwrap();
-    let pivot_neighbors: HashSet<_> = graph.neighbors(pivot).collect();
-    let p_minus_neighbors: HashSet<_> = p.difference(&pivot_neighbors).copied().collect();
+    let pivot_neighbors = graph.neighbors(pivot).collect();
 
-    for v in p_minus_neighbors {
+    for v in p.clone().difference(&pivot_neighbors).copied() {
         r.insert(v);
 
-        let neighbors: HashSet<_> = graph.neighbors(v).collect();
+        let neighbors = graph.neighbors(v).collect();
         let p_new = p.intersection(&neighbors).copied().collect();
         let x_new = x.intersection(&neighbors).copied().collect();
 
@@ -99,10 +117,7 @@ pub fn part2(graph: &UnGraph<SStr, ()>) -> String {
 
     max_clique
         .into_iter()
-        .map(|idx| unsafe {
-            // SAFETY: node_weight's are all [u8; 2] and unicode
-            std::str::from_utf8_unchecked(graph.node_weight(idx).unwrap().as_slice())
-        })
+        .map(|idx| graph.node_weight(idx).unwrap().as_str())
         .sorted_unstable()
         .join(",")
 }
