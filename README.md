@@ -46,6 +46,8 @@
   - [solution](src/day22.rs)
 - [Day 23: LAN Party](https://adventofcode.com/2024/day/23)
   - [solution](src/day23.rs)
+- [Day 24: Crossed Wires](https://adventofcode.com/2024/day/24)
+  - [solution](src/day24.rs)
 <!-- Insert before -->
 
 See:
