@@ -1,4 +1,4 @@
-# Advent of Code 2023 - Rust
+# Advent of Code 2024 - Rust
 
 - [Day 1: Historian Hysteria](https://adventofcode.com/2024/day/1)
   - [solution](src/day01.rs)
@@ -48,6 +48,8 @@
   - [solution](src/day23.rs)
 - [Day 24: Crossed Wires](https://adventofcode.com/2024/day/24)
   - [solution](src/day24.rs)
+- [Day 25: Code Chronicle](https://adventofcode.com/2024/day/25)
+  - [solution](src/day25.rs)
 <!-- Insert before -->
 
 See:
