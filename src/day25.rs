@@ -2,12 +2,12 @@ use aoc_runner_derive::{aoc, aoc_generator};
 use itertools::Itertools;
 
 #[aoc_generator(day25)]
-pub fn generator(input: &str) -> (Vec<[i8; 5]>, Vec<[i8; 5]>) {
+pub fn generator(input: &str) -> (Vec<[u64; 5]>, Vec<[u64; 5]>) {
     let mut locks = Vec::new();
     let mut keys = Vec::new();
 
     input.split("\n\n").for_each(|group| {
-        let array = group.lines().fold([-1; 5], |mut acc, line| {
+        let array = group.lines().fold([0; 5], |mut acc, line| {
             for (cell, b) in acc.iter_mut().zip(line.bytes()) {
                 if b == b'#' {
                     *cell += 1;
@@ -28,11 +28,11 @@ pub fn generator(input: &str) -> (Vec<[i8; 5]>, Vec<[i8; 5]>) {
 }
 
 #[aoc(day25, part1)]
-pub fn part1((locks, keys): &(Vec<[i8; 5]>, Vec<[i8; 5]>)) -> usize {
+pub fn part1((locks, keys): &(Vec<[u64; 5]>, Vec<[u64; 5]>)) -> usize {
     locks
         .iter()
         .cartesian_product(keys.iter())
-        .filter(|(l, k)| l.iter().zip(k.iter()).all(|(a, b)| a + b <= 5))
+        .filter(|(l, k)| l.iter().zip(k.iter()).all(|(a, b)| a + b <= 7))
         .count()
 }
 
