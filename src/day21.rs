@@ -1,15 +1,10 @@
-use ahash::{HashMap, HashMapExt};
+use ahash::HashMap;
 use aoc_runner_derive::{aoc, aoc_generator};
 use itertools::Itertools;
-use pathfinding::{
-    matrix::directions::DIRECTIONS_4,
-    prelude::{astar, astar_bag_collect},
-    utils::move_in_direction,
-};
+use pathfinding::{matrix::directions::DIRECTIONS_4, prelude::astar_bag, utils::move_in_direction};
 
 type Pad<'a> = &'a [&'a [u8]];
 type Position = (usize, usize);
-type Cache = HashMap<(Position, Position, usize), usize>;
 
 const NUM_PAD: Pad = &[b"789", b"456", b"123", b".0A"];
 const DIR_PAD: Pad = &[b".^A", b"<v>"];
@@ -47,55 +42,6 @@ fn char2pos(pad: Pad, c: u8) -> Position {
     }
 }
 
-fn calculate_minimum(
-    pad: Pad,
-    a: Position,
-    b: Position,
-    remain: usize,
-    memo: &mut Cache,
-) -> (Vec<u8>, usize) {
-    // Get all paths from a to b
-    let paths = astar(
-        &a,
-        |&pos| {
-            DIRECTIONS_4
-                .into_iter()
-                .filter_map(move |dir| move_in_direction(pos, dir, (pad.len(), pad[0].len())))
-                .filter(|new_pos| pad[new_pos.0][new_pos.1] != b'.')
-                .map(|new_pos| {
-                    (
-                        new_pos,
-                        if remain > 0 {
-                            get_cost(pad, pos, new_pos, remain - 1, memo)
-                        } else {
-                            1
-                        },
-                    )
-                })
-                .collect_vec()
-        },
-        |_| 0,
-        |&pos| pos == b,
-    )
-    .unwrap();
-
-    memo.insert((a, b, remain), paths.1);
-
-    // convert the positions to directions and cost
-    // return the minimum cost
-    (pos2dir(&paths.0), paths.1)
-}
-
-fn input_to_move(pad: Pad, input: &[u8], remain: usize, memo: &mut Cache) -> Vec<u8> {
-    std::iter::once(b'A')
-        .chain(input.iter().copied())
-        .tuple_windows()
-        .flat_map(|(w, u)| {
-            calculate_minimum(pad, char2pos(pad, w), char2pos(pad, u), remain, memo).0
-        })
-        .collect()
-}
-
 fn pos2dir(positions: &[Position]) -> Vec<u8> {
     let mut dirs: Vec<_> = positions
         .windows(2)
@@ -118,18 +64,54 @@ fn pos2dir(positions: &[Position]) -> Vec<u8> {
     dirs
 }
 
-fn get_cost(pad: Pad, a: Position, b: Position, remain: usize, memo: &mut Cache) -> usize {
-    if let Some(&cost) = memo.get(&(a, b, remain)) {
-        return cost;
+fn get_paths(pad: Pad, a: Position, b: Position) -> impl Iterator<Item = Vec<u8>> {
+    astar_bag(
+        &a,
+        |&pos| {
+            DIRECTIONS_4
+                .into_iter()
+                .filter_map(move |dir| move_in_direction(pos, dir, (pad.len(), pad[0].len())))
+                .filter(|new_pos| pad[new_pos.0][new_pos.1] != b'.')
+                .map(|new_pos| (new_pos, 1))
+        },
+        |_| 0,
+        |&pos| pos == b,
+    )
+    .unwrap()
+    .0
+    .map(|v| pos2dir(&v))
+}
+
+fn shortest_len(
+    seq: &[u8],
+    depth: usize,
+    max_depth: usize,
+    memo: &mut HashMap<(usize, Vec<u8>), usize>,
+) -> usize {
+    if let Some(&len) = memo.get(&(depth, seq.to_vec())) {
+        return len;
     }
 
-    let mut cost = 1;
+    let pad = if depth == 0 { NUM_PAD } else { DIR_PAD };
+    let len = std::iter::once(b'A')
+        .chain(seq.iter().copied())
+        .tuple_windows()
+        .map(|(a, b)| {
+            let paths = get_paths(pad, char2pos(pad, a), char2pos(pad, b));
+            if depth == max_depth {
+                paths.map(|path| path.len()).min().unwrap()
+            } else {
+                paths
+                    .map(|path| shortest_len(&path, depth + 1, max_depth, memo))
+                    .min()
+                    .unwrap()
+            }
+        })
+        .sum();
 
-    if remain > 0 {
-        let a = calculate_minimum(pad, a, b, remain - 1, memo);
-        cost += a.1;
-    }
-    cost
+    memo.insert((depth, seq.to_vec()), len);
+
+    len
 }
 
 #[aoc_generator(day21)]
@@ -139,25 +121,26 @@ pub fn generator(input: &str) -> Vec<String> {
 
 #[aoc(day21, part1)]
 pub fn part1(inputs: &[String]) -> usize {
-    // let mut num_cache = HashMap::new();
-    let mut dir_cache = HashMap::new();
-
-    let mut total = 0;
-    for s in inputs.iter() {
-        let n = s[..s.len() - 1].parse::<usize>().unwrap();
-        let s = input_to_move(NUM_PAD, s.as_bytes(), 3, &mut dir_cache);
-        let s = input_to_move(DIR_PAD, &s, 2, &mut dir_cache);
-        let s = input_to_move(DIR_PAD, &s, 1, &mut dir_cache);
-
-        total += n * s.len();
-    }
-
-    total
+    let mut memo = Default::default();
+    inputs
+        .iter()
+        .map(|seq| {
+            let n = seq[..seq.len() - 1].parse::<usize>().unwrap();
+            n * shortest_len(seq.as_bytes(), 0, 2, &mut memo)
+        })
+        .sum()
 }
 
 #[aoc(day21, part2)]
 pub fn part2(inputs: &[String]) -> usize {
-    unimplemented!()
+    let mut memo = Default::default();
+    inputs
+        .iter()
+        .map(|seq| {
+            let n = seq[..seq.len() - 1].parse::<usize>().unwrap();
+            n * shortest_len(seq.as_bytes(), 0, 25, &mut memo)
+        })
+        .sum()
 }
 
 pub fn debug_output(v: &[u8]) -> &str {
@@ -177,83 +160,35 @@ mod tests {
 
     #[test]
     pub fn input_test() {
-        // println!("{:?}", generator(SAMPLE));
-
-        let mut num_cache = HashMap::new();
-        let mut dir_cache = HashMap::new();
-
-        for _ in 0..10 {
-            println!(
-                "{:?}",
-                debug_output(&input_to_move(
-                    NUM_PAD,
-                    "279A".as_bytes(),
-                    1,
-                    &mut num_cache
-                ))
-            );
-        }
-
-        for _ in 0..10 {
-            println!(
-                "{:?}",
-                debug_output(&input_to_move(
-                    DIR_PAD,
-                    "<^A<^^A>>AvvvA".as_bytes(),
-                    1,
-                    &mut dir_cache
-                ))
-            );
-        }
-
-        // println!(
-        //     "{:?}",
-        //     debug_output(&input_to_move(
-        //         DIR_PAD,
-        //         "v<<A>^A>Av<<A>^AA>AvAA^A<vAAA>^A".as_bytes()
-        //     ))
-        // );
-        //<vA<AA>^>AvA^<A>AvA^A<vA<AA>^>AvA^<A>AAvA^A<vA^>AA<A>A<v<A>A^>AAA<Av>A^A
-        //v<<A>>^Av<A<A>>^AvAA^<A>Av<<A>>^AAv<A<A>>^AvAA^<A>Av<A>^AA<A>Av<A<A>>^AAA<A>vA^A
-
-        // assert_eq!(
-        //     solve_direction_pad("<A^A^>^AvvvA"),
-        //     "v<<A>>^A<A>AvA<^AA>A<vAAA>^A"
-        // )
-        // assert_eq!(generator(SAMPLE), Object());
+        println!("{:?}", generator(SAMPLE));
     }
 
     #[test]
     pub fn part1_test() {
-        //2: 279 v<A <AA>>^AvA^<A>AvA^Av<A<AA>>^AvA^<A>AAvA^Av<A>^AA<A>A<vA<A>>^AAA<Av>A^A
-        //2: 279 v<<A >>^Av<A<A>>^AvAA<^A>Av<A<AA>>^AvA<^A>AAvA^Av<A>^AA<A>Av<<A>A^>AAAvA^<A>A
-        part1(&["279A".to_string()]);
-        // part1(&["279A".to_string()]);
-        // assert_eq!(part1(&["279A".to_string()]), 279 * 72);
-        // assert_eq!(part1(&["341A".to_string()]), 341 * 72);
-        // assert_eq!(part1(&["459A".to_string()]), 459 * 74);
-
-        // assert_eq!(part1(&generator(SAMPLE)), 126384);
+        assert_eq!(part1(&["279A".to_string()]), 279 * 72);
+        assert_eq!(part1(&["341A".to_string()]), 341 * 72);
+        assert_eq!(part1(&["459A".to_string()]), 459 * 74);
+        assert_eq!(part1(&generator(SAMPLE)), 126384);
     }
 
     #[test]
     pub fn part2_test() {
-        // assert_eq!(part2(&generator(SAMPLE)), 336);
+        assert_eq!(part2(&generator(SAMPLE)), 154115708116294);
     }
 
     mod regression {
         use super::*;
 
         const INPUT: &str = include_str!("../input/2024/day21.txt");
-        const ANSWERS: (usize, usize) = (0, 0);
+        const ANSWERS: (usize, usize) = (123096, 154517692795352);
 
         #[test]
         pub fn test() {
             let input = INPUT.trim_end_matches('\n');
-            // let output = generator(input);
+            let output = generator(input);
 
-            // assert_eq!(part1(&output), ANSWERS.0);
-            // assert_eq!(part2(&output), ANSWERS.1);
+            assert_eq!(part1(&output), ANSWERS.0);
+            assert_eq!(part2(&output), ANSWERS.1);
         }
     }
 }
