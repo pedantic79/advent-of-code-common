@@ -24,7 +24,7 @@ const NUM_POS: &[Position] = &[
 const DIR_POS: &[Position] = &[(0, 1), (0, 2), (1, 0), (1, 1), (1, 2)];
 
 fn char2pos(pad: Pad, c: u8) -> Position {
-    if pad.len() == 4 {
+    if pad.len() == NUM_PAD.len() {
         NUM_POS[if c.is_ascii_digit() {
             usize::from(c - b'0')
         } else {
@@ -37,7 +37,7 @@ fn char2pos(pad: Pad, c: u8) -> Position {
             b'<' => 2,
             b'v' => 3,
             b'>' => 4,
-            _ => panic!("unknown char"),
+            _ => panic!("unknown char: {}", c as char),
         }]
     }
 }
@@ -64,7 +64,10 @@ fn pos2dir(positions: &[Position]) -> Vec<u8> {
     dirs
 }
 
-fn get_paths(pad: Pad, a: Position, b: Position) -> impl Iterator<Item = Vec<u8>> {
+fn get_paths(pad: Pad, a: u8, b: u8) -> impl Iterator<Item = Vec<u8>> {
+    let a = char2pos(pad, a);
+    let b = char2pos(pad, b);
+
     astar_bag(
         &a,
         |&pos| {
@@ -97,7 +100,7 @@ fn shortest_len(
         .chain(seq.iter().copied())
         .tuple_windows()
         .map(|(a, b)| {
-            let paths = get_paths(pad, char2pos(pad, a), char2pos(pad, b));
+            let paths = get_paths(pad, a, b);
             if depth == max_depth {
                 paths.map(|path| path.len()).min().unwrap()
             } else {
@@ -119,28 +122,26 @@ pub fn generator(input: &str) -> Vec<String> {
     input.lines().map(ToOwned::to_owned).collect()
 }
 
-#[aoc(day21, part1)]
-pub fn part1(inputs: &[String]) -> usize {
+fn solve<const MAX: usize>(inputs: &[String]) -> usize {
     let mut memo = Default::default();
     inputs
         .iter()
         .map(|seq| {
             let n = seq[..seq.len() - 1].parse::<usize>().unwrap();
-            n * shortest_len(seq.as_bytes(), 0, 2, &mut memo)
+            let l = shortest_len(seq.as_bytes(), 0, MAX, &mut memo);
+            n * l
         })
         .sum()
 }
 
+#[aoc(day21, part1)]
+pub fn part1(inputs: &[String]) -> usize {
+    solve::<2>(inputs)
+}
+
 #[aoc(day21, part2)]
 pub fn part2(inputs: &[String]) -> usize {
-    let mut memo = Default::default();
-    inputs
-        .iter()
-        .map(|seq| {
-            let n = seq[..seq.len() - 1].parse::<usize>().unwrap();
-            n * shortest_len(seq.as_bytes(), 0, 25, &mut memo)
-        })
-        .sum()
+    solve::<25>(inputs)
 }
 
 pub fn debug_output(v: &[u8]) -> &str {
