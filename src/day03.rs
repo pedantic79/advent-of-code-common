@@ -1,5 +1,12 @@
 use aoc_runner_derive::{aoc, aoc_generator};
-use nom::{bytes::complete::tag, IResult};
+use nom::{
+    branch::alt,
+    bytes::complete::tag,
+    character::complete::anychar,
+    combinator::map,
+    multi::{many0, many_till},
+    sequence, IResult,
+};
 
 use crate::common::nom::nom_usize;
 
@@ -10,7 +17,22 @@ pub enum Symbols {
     Dont,
 }
 
-fn parse_digit(s: &str) -> IResult<&str, usize> {
+fn parse_symbol(s: &str) -> IResult<&str, Symbols> {
+    let symbols = alt((
+        map(tag("don't()"), |_| Symbols::Dont),
+        map(tag("do()"), |_| Symbols::Do),
+        map(
+            sequence::delimited(tag("mul("), parse_mul, tag(")")),
+            Symbols::Mul,
+        ),
+    ));
+
+    // skips junk until symbols produces a result
+    let (s, (_, mul)) = many_till(anychar, symbols)(s)?;
+    Ok((s, mul))
+}
+
+fn parse_mul(s: &str) -> IResult<&str, usize> {
     let (rest, a) = nom_usize(s)?;
     let (rest, _) = tag(",")(rest)?;
     let (rest, b) = nom_usize(rest)?;
@@ -18,41 +40,9 @@ fn parse_digit(s: &str) -> IResult<&str, usize> {
     Ok((rest, a * b))
 }
 
-fn parse(s: &str) -> Option<(&str, Symbols)> {
-    let b = s.as_bytes();
-    let mut i = 0;
-    while i < s.len() {
-        match b[i] {
-            b'd' if b[i..].starts_with(b"don't()") => return Some((&s[i + 7..], Symbols::Dont)),
-            b'd' if b[i..].starts_with(b"do()") => return Some((&s[i + 4..], Symbols::Do)),
-            b'm' if b[i..].starts_with(b"mul(") => {
-                i += 4;
-                let rest = &s[i..];
-                if let Ok((rest, m)) = parse_digit(rest) {
-                    if rest.as_bytes()[0] == b')' {
-                        return Some((&rest[1..], Symbols::Mul(m)));
-                    }
-                }
-                continue;
-            }
-            _ => {}
-        }
-        i += 1;
-    }
-
-    None
-}
-
 #[aoc_generator(day3)]
 pub fn generator(input: &str) -> Vec<Symbols> {
-    let mut input = input;
-    let mut v = Vec::new();
-    while let Some((i, m)) = parse(input) {
-        v.push(m);
-        input = i;
-    }
-
-    v
+    many0(parse_symbol)(input).unwrap().1
 }
 
 #[aoc(day3, part1)]
