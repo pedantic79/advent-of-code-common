@@ -1,7 +1,4 @@
 use aoc_runner_derive::{aoc, aoc_generator};
-use num::PrimInt;
-use pathfinding::prelude::dfs;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 use crate::common::parse::parse_split;
 
@@ -24,70 +21,59 @@ pub fn generator(input: &str) -> Vec<Math> {
         .collect()
 }
 
-// fn find(total: usize, rest: &[usize], target: usize) -> Option<usize> {}
+fn depth_first_p1(total: usize, target: usize, numbers: &[usize]) -> bool {
+    if numbers.is_empty() {
+        return total == target;
+    }
+
+    if total > target {
+        return false;
+    }
+
+    let (&first, rest) = numbers.split_first().unwrap();
+    depth_first_p1(total * first, target, rest) || depth_first_p1(total + first, target, rest)
+}
+
+fn depth_first_p2(total: usize, target: usize, numbers: &[usize]) -> bool {
+    if numbers.is_empty() {
+        return total == target;
+    }
+
+    if total > target {
+        return false;
+    }
+
+    let (&first, rest) = numbers.split_first().unwrap();
+    depth_first_p2(total * first, target, rest)
+        || depth_first_p2(total + first, target, rest)
+        || depth_first_p2(concat(total, first), target, rest)
+}
 
 #[aoc(day7, part1)]
 pub fn part1(inputs: &[Math]) -> usize {
     inputs
         .iter()
-        .map(|line| {
-            if dfs(
-                (line.numbers[0], 1),
-                |&(total, rest)| {
-                    if total > line.total || line.numbers.len() == rest {
-                        vec![]
-                    } else {
-                        vec![
-                            (total + line.numbers[rest], rest + 1),
-                            (total * line.numbers[rest], rest + 1),
-                        ]
-                    }
-                },
-                |&(total, rest)| total == line.total && line.numbers.len() == rest,
-            )
-            .is_some()
-            {
-                line.total
-            } else {
-                0
-            }
-        })
+        .filter(|Math { total, numbers }| depth_first_p1(numbers[0], *total, &numbers[1..]))
+        .map(|m| m.total)
         .sum()
 }
 
 fn concat(a: usize, b: usize) -> usize {
-    let num_digits = (b as f64).log10().floor() as u32 + 1;
-    let shift = 10.pow(num_digits);
+    let mut shift = 1;
+
+    while shift <= b {
+        shift *= 10;
+    }
+
     a * shift + b
 }
 
 #[aoc(day7, part2)]
 pub fn part2(inputs: &[Math]) -> usize {
     inputs
-        .par_iter()
-        .map(|line| {
-            if dfs(
-                (line.numbers[0], 1),
-                |&(total, rest)| {
-                    if total > line.total || line.numbers.len() == rest {
-                        vec![]
-                    } else {
-                        vec![
-                            (total + line.numbers[rest], rest + 1),
-                            (total * line.numbers[rest], rest + 1),
-                            (concat(total, line.numbers[rest]), rest + 1),
-                        ]
-                    }
-                },
-                |&(total, rest)| total == line.total && line.numbers.len() == rest,
-            )
-            .is_some()
-            {
-                line.total
-            } else {
-                0
-            }
-        })
+        .iter()
+        .filter(|Math { total, numbers }| depth_first_p2(numbers[0], *total, &numbers[1..]))
+        .map(|m| m.total)
         .sum()
 }
 
