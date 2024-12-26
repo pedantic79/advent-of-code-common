@@ -8,7 +8,7 @@ pub struct Object {
 }
 
 #[aoc_generator(day1)]
-pub fn generator(input: &str) -> Object {
+pub fn generator(input: &str) -> (Vec<usize>, Vec<usize>) {
     let mut a = Vec::new();
     let mut b = Vec::new();
     for l in input.lines() {
@@ -18,13 +18,11 @@ pub fn generator(input: &str) -> Object {
     }
     a.sort_unstable();
     b.sort_unstable();
-    Object { left: a, rite: b }
+    (a, b)
 }
 
 #[aoc(day1, part1)]
-pub fn part1(inputs: &Object) -> usize {
-    let Object { left, rite } = inputs;
-
+pub fn part1((left, rite): &(Vec<usize>, Vec<usize>)) -> usize {
     left.iter()
         .zip(rite.iter())
         .map(|(&l, &r)| l.abs_diff(r))
@@ -32,60 +30,13 @@ pub fn part1(inputs: &Object) -> usize {
 }
 
 #[aoc(day1, part2)]
-pub fn part2(inputs: &Object) -> usize {
-    let Object { left, rite } = inputs;
-
+pub fn part2((left, rite): &(Vec<usize>, Vec<usize>)) -> usize {
     let mut freq = HashMap::new();
     for r in rite {
         *freq.entry(*r).or_insert(0) += 1;
     }
 
     left.iter().map(|&l| l * freq.get(&l).unwrap_or(&0)).sum()
-}
-
-#[aoc(day1, part2, alt)]
-pub fn part2_alt(inputs: &Object) -> usize {
-    let Object { left, rite } = inputs;
-
-    let mut sum = 0;
-    let mut riter = rite.iter().peekable();
-    for &l in left {
-        println!("{} -> {}", l, **riter.peek().unwrap_or(&&usize::MAX));
-        while **riter.peek().unwrap_or(&&usize::MAX) < l {
-            riter.next();
-        }
-
-        println!("{} x-> {}", l, **riter.peek().unwrap_or(&&usize::MAX));
-        while Some(&&l) == riter.peek() {
-            riter.next();
-            sum += l;
-        }
-    }
-
-    sum
-}
-
-#[aoc(day1, part2, rev)]
-pub fn part2_alt2(inputs: &Object) -> usize {
-    let Object { left, rite } = inputs;
-
-    let mut sum = 0;
-    let mut riter = rite.iter().peekable();
-    for &l in left {
-        println!("{} -> {}", l, **riter.peek().unwrap_or(&&usize::MAX));
-
-        while *riter.next().unwrap_or(&usize::MAX) < l {}
-        riter.next_back();
-
-        println!("{} x-> {}", l, **riter.peek().unwrap_or(&&usize::MAX));
-
-        while Some(&l) == riter.next() {
-            sum += l;
-        }
-        riter.next_back();
-    }
-
-    sum
 }
 
 #[cfg(test)]
