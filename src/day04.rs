@@ -1,66 +1,72 @@
 use aoc_runner_derive::{aoc, aoc_generator};
-use pathfinding::matrix::directions;
+use pathfinding::matrix::{
+    directions::{self},
+    Matrix,
+};
+use smallstr::SmallString;
 
 #[aoc_generator(day4)]
-pub fn generator(input: &str) -> Vec<Vec<u8>> {
-    input.lines().map(|line| line.bytes().collect()).collect()
+pub fn generator(input: &str) -> Matrix<u8> {
+    input.lines().map(|line| line.bytes()).collect()
 }
 
-fn get(inputs: &[Vec<u8>], r: usize, c: usize, (r_step, c_step): (isize, isize)) -> Option<u8> {
-    let r = r.checked_add_signed(r_step)?;
-    let c = c.checked_add_signed(c_step)?;
-
-    inputs.get(r).and_then(|row| row.get(c)).copied()
+fn get(matrix: &Matrix<u8>, pos: (usize, usize), direction: (isize, isize)) -> Option<u8> {
+    matrix
+        .get(matrix.move_in_direction(pos, direction)?)
+        .copied()
 }
 
-fn check_mas(inputs: &[Vec<u8>], r: usize, c: usize, (r_step, c_step): (isize, isize)) -> bool {
-    (1..4)
-        .map(|step| get(inputs, r, c, (r_step * step, c_step * step)))
-        .eq("MAS".bytes().map(Some))
+fn check_mas(matrix: &Matrix<u8>, pos: (usize, usize), direction: (isize, isize)) -> bool {
+    let mut m = matrix
+        .in_direction(pos, direction)
+        .map(|p| matrix.get(p).copied().unwrap_or(b' '));
+
+    let s = unsafe {
+        SmallString::from_buf_unchecked([
+            m.next().unwrap_or(b' '),
+            m.next().unwrap_or(b' '),
+            m.next().unwrap_or(b' '),
+        ])
+    };
+
+    s == "MAS"
 }
 
 #[aoc(day4, part1)]
-pub fn part1(inputs: &[Vec<u8>]) -> usize {
+pub fn part1(matrix: &Matrix<u8>) -> usize {
     let mut count = 0;
-    for (r, row) in inputs.iter().enumerate() {
-        for (c, col) in row.iter().enumerate() {
-            if col == &b'X' {
-                count += directions::DIRECTIONS_8
-                    .iter()
-                    .map(|&dir| usize::from(check_mas(inputs, r, c, dir)))
-                    .sum::<usize>();
-            }
+
+    for pos in matrix.keys() {
+        if Some(&b'X') == matrix.get(pos) {
+            count += directions::DIRECTIONS_8
+                .iter()
+                .map(|&dir| usize::from(check_mas(matrix, pos, dir)))
+                .sum::<usize>();
         }
     }
 
     count
 }
 
-fn get_corners(inputs: &[Vec<u8>], r: usize, c: usize) -> [Option<u8>; 4] {
-    [
-        get(inputs, r, c, directions::NE),
-        get(inputs, r, c, directions::SE),
-        get(inputs, r, c, directions::SW),
-        get(inputs, r, c, directions::NW),
-    ]
+fn get_corners(matrix: &Matrix<u8>, pos: (usize, usize)) -> SmallString<[u8; 4]> {
+    unsafe {
+        SmallString::from_buf_unchecked([
+            get(matrix, pos, directions::NE).unwrap_or(b' '),
+            get(matrix, pos, directions::SE).unwrap_or(b' '),
+            get(matrix, pos, directions::SW).unwrap_or(b' '),
+            get(matrix, pos, directions::NW).unwrap_or(b' '),
+        ])
+    }
 }
 
 #[aoc(day4, part2)]
-pub fn part2(inputs: &[Vec<u8>]) -> usize {
+pub fn part2(matrix: &Matrix<u8>) -> usize {
     let mut count = 0;
 
-    for (r, row) in inputs.iter().enumerate() {
-        for (c, col) in row.iter().enumerate() {
-            if col == &b'A' {
-                let v = get_corners(inputs, r, c);
-                if v == [Some(b'M'), Some(b'S'), Some(b'S'), Some(b'M')]
-                    || v == [Some(b'S'), Some(b'S'), Some(b'M'), Some(b'M')]
-                    || v == [Some(b'S'), Some(b'M'), Some(b'M'), Some(b'S')]
-                    || v == [Some(b'M'), Some(b'M'), Some(b'S'), Some(b'S')]
-                {
-                    count += 1;
-                }
-            }
+    for pos in matrix.keys() {
+        if Some(&b'A') == matrix.get(pos) {
+            let v = get_corners(matrix, pos);
+            count += usize::from(v == "MMSS" || v == "MSSM" || v == "SSMM" || v == "SMMS");
         }
     }
 
