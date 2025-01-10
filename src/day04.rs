@@ -23,13 +23,14 @@ fn check_mas(matrix: &Matrix<u8>, pos: (usize, usize), direction: (isize, isize)
 
     let s = unsafe {
         SmallString::from_buf_unchecked([
+            b'X',
             m.next().unwrap_or(b' '),
             m.next().unwrap_or(b' '),
             m.next().unwrap_or(b' '),
         ])
     };
 
-    s == "MAS"
+    s == "XMAS"
 }
 
 #[aoc(day4, part1)]
@@ -40,8 +41,8 @@ pub fn part1(matrix: &Matrix<u8>) -> usize {
         if Some(&b'X') == matrix.get(pos) {
             count += directions::DIRECTIONS_8
                 .iter()
-                .map(|&dir| usize::from(check_mas(matrix, pos, dir)))
-                .sum::<usize>();
+                .filter(|&&dir| check_mas(matrix, pos, dir))
+                .count();
         }
     }
 
@@ -49,6 +50,7 @@ pub fn part1(matrix: &Matrix<u8>) -> usize {
 }
 
 fn get_corners(matrix: &Matrix<u8>, pos: (usize, usize)) -> SmallString<[u8; 4]> {
+    // SAFETY: Everything is unicode
     unsafe {
         SmallString::from_buf_unchecked([
             get(matrix, pos, directions::NE).unwrap_or(b' '),
