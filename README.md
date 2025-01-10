@@ -1,59 +1,39 @@
-# Advent of Code 2024 - Rust
+# Common module for Advent of Code
 
-- [Day 1: Historian Hysteria](https://adventofcode.com/2024/day/1)
-  - [solution](src/day01.rs)
-- [Day 2: Red-Nosed Reports](https://adventofcode.com/2024/day/2)
-  - [solution](src/day02.rs)
-- [Day 3: Mull It Overs](https://adventofcode.com/2024/day/3)
-  - [solution](src/day03.rs)
-- [Day 4: Ceres Search](https://adventofcode.com/2024/day/4)
-  - [solution](src/day04.rs)
-- [Day 5: Print Queue](https://adventofcode.com/2024/day/5)
-  - [solution](src/day05.rs)
-- [Day 6: Guard Gallivant](https://adventofcode.com/2024/day/6)
-  - [solution](src/day06.rs)
-- [Day 7: Bridge Repair](https://adventofcode.com/2024/day/7)
-  - [solution](src/day07.rs)
-- [Day 8: Resonant Collinearity](https://adventofcode.com/2024/day/8)
-  - [solution](src/day08.rs)
-- [Day 9: Disk Fragmenter](https://adventofcode.com/2024/day/9)
-  - [solution](src/day09.rs)
-- [Day 10: Hoof It](https://adventofcode.com/2024/day/10)
-  - [solution](src/day10.rs)
-- [Day 11: Plutonian Pebbles](https://adventofcode.com/2024/day/11)
-  - [solution](src/day11.rs)
-- [Day 12: Garden Groups](https://adventofcode.com/2024/day/12)
-  - [solution](src/day12.rs)
-- [Day 13: Claw Contraption](https://adventofcode.com/2024/day/13)
-  - [solution](src/day13.rs)
-- [Day 14: Restroom Redoubt](https://adventofcode.com/2024/day/14)
-  - [solution](src/day14.rs)
-- [Day 15: Warehouse Woes](https://adventofcode.com/2024/day/15)
-  - [solution](src/day15.rs)
-- [Day 16: Restroom Redoubt](https://adventofcode.com/2024/day/16)
-  - [solution](src/day16.rs)
-- [Day 17: Chronospatial Computer](https://adventofcode.com/2024/day/17)
-  - [solution](src/day17.rs)
-- [Day 18: RAM Run](https://adventofcode.com/2024/day/18)
-  - [solution](src/day18.rs)
-- [Day 19: Linen Layout](https://adventofcode.com/2024/day/19)
-  - [solution](src/day19.rs)
-- [Day 20: Race Condition](https://adventofcode.com/2024/day/20)
-  - [solution](src/day20.rs)
-- [Day 21: Keypad Conundrum](https://adventofcode.com/2024/day/21)
-  - [solution](src/day21.rs)
-- [Day 22: Monkey Market](https://adventofcode.com/2024/day/22)
-  - [solution](src/day22.rs)
-- [Day 23: LAN Party](https://adventofcode.com/2024/day/23)
-  - [solution](src/day23.rs)
-- [Day 24: Crossed Wires](https://adventofcode.com/2024/day/24)
-  - [solution](src/day24.rs)
-- [Day 25: Code Chronicle](https://adventofcode.com/2024/day/25)
-  - [solution](src/day25.rs)
-<!-- Insert before -->
+Use as a git subtree
 
-See:
+## With remote
 
-- [Advent of Code 2024](https://adventofcode.com/2024/)
-- [aoc-runner](https://crates.io/crates/aoc-runner)
-- [cargo-aoc](https://crates.io/crates/cargo-aoc)
+Setup:
+```bash
+git remote add -f common https://github.com/pedantic79/advent-of-code-common.git
+git subtree add --prefix=src/common common main --squash
+```
+
+Update:
+```bash
+git subtree push --prefix=src/common common main
+```
+
+Pull:
+```bash
+git subtree pull --prefix=src/common common main --squash
+```
+
+
+## Without remote
+
+Setup:
+```bash
+git subtree add --prefix=src/common https://github.com/pedantic79/advent-of-code-common.git main --squash
+```
+
+Update:
+```bash
+git subtree push --prefix=src/common https://github.com/pedantic79/advent-of-code-common.git main
+```
+
+Pull:
+```bash
+git subtree pull --prefix=src/common https://github.com/pedantic79/advent-of-code-common.git main --squash
+```
