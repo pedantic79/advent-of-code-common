@@ -5,6 +5,7 @@ pub mod nom;
 pub mod parse;
 pub mod pathfinding;
 mod range;
+pub mod sstr;
 pub mod utils;
 
 pub use extensions::*;
