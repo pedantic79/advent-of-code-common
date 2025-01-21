@@ -25,3 +25,9 @@ impl<const N: usize> SStr<N> {
         self.0[0] == p
     }
 }
+
+impl<const N: usize> From<[u8; N]> for SStr<N> {
+    fn from(value: [u8; N]) -> Self {
+        Self(value)
+    }
+}
