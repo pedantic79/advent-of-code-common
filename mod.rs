@@ -2,6 +2,7 @@ mod extensions;
 pub mod heap_retain;
 pub mod matrix;
 pub mod nom;
+pub mod pairing;
 pub mod parse;
 pub mod pathfinding;
 mod range;

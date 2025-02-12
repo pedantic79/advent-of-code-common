@@ -1,4 +1,4 @@
-use std::{fmt::Debug, ops::RangeFrom};
+use std::fmt::Debug;
 
 use nom::{
     character::complete::newline,
@@ -6,7 +6,7 @@ use nom::{
     error::{ErrorKind, ParseError},
     multi::separated_list0,
     sequence::terminated,
-    AsChar, Compare, IResult, InputIter, InputLength, InputTake, Parser, Slice,
+    AsChar, Compare, IResult, Input, Parser,
 };
 
 /// parser for `usize` that is a  wrapper around [u64](https://docs.rs/nom/latest/nom/character/complete/fn.u64.html).
@@ -14,10 +14,10 @@ use nom::{
 #[cfg(target_pointer_width = "64")]
 pub fn nom_usize<T>(s: T) -> IResult<T, usize>
 where
-    T: InputIter + Slice<RangeFrom<usize>> + InputLength,
-    <T as InputIter>::Item: AsChar,
+    T: Input,
+    <T as Input>::Item: AsChar,
 {
-    map(nom::character::complete::u64, |x| x as usize)(s)
+    map(nom::character::complete::u64, |x| x as usize).parse(s)
 }
 
 /// parser for `isize` that is a  wrapper around [i64](https://docs.rs/nom/latest/nom/character/complete/fn.i64.html).
@@ -25,11 +25,11 @@ where
 #[cfg(target_pointer_width = "64")]
 pub fn nom_isize<T>(s: T) -> IResult<T, isize>
 where
-    T: InputIter + Slice<RangeFrom<usize>> + InputLength + InputTake + Clone,
-    <T as InputIter>::Item: AsChar,
+    T: Input + Clone,
+    <T as Input>::Item: AsChar,
     T: for<'a> Compare<&'a [u8]>,
 {
-    map(nom::character::complete::i64, |x| x as isize)(s)
+    map(nom::character::complete::i64, |x| x as isize).parse(s)
 }
 
 macro_rules! uints {
@@ -38,8 +38,8 @@ macro_rules! uints {
             #[inline(always)]
             pub fn $n<T>(s: T) -> IResult<T, $t>
             where
-                T: InputIter + Slice<RangeFrom<usize>> + InputLength,
-                <T as InputIter>::Item: AsChar,
+                T: Input,
+                <T as Input>::Item: AsChar,
             {
                 nom::character::complete::$t(s)
             }
@@ -55,8 +55,8 @@ macro_rules! ints {
             #[inline(always)]
             pub fn $n<T, E: ParseError<T>>(s: T) -> IResult<T, $t, E>
                 where
-                T: InputIter + Slice<RangeFrom<usize>> + InputLength + InputTake + Clone,
-                <T as InputIter>::Item: AsChar,
+                T: Input + Clone,
+                <T as Input>::Item: AsChar,
                 T: for <'a> Compare<&'a[u8]>,
             {
                 nom::character::complete::$t(s)
@@ -69,10 +69,10 @@ ints! { nom_i8,i8 nom_i16,i16 nom_i32,i32 nom_i64,i64 nom_i128,i128}
 
 pub fn process_input<F, I, R, E>(mut f: F) -> impl FnMut(I) -> R
 where
-    I: Compare<I> + InputIter + Slice<RangeFrom<usize>> + InputLength + InputTake + Clone,
-    F: Parser<I, R, E>,
+    I: Compare<I> + Input + Clone,
+    F: Parser<I, Output = R, Error = E>,
     E: ParseError<I> + Debug,
-    <I as InputIter>::Item: AsChar,
+    <I as Input>::Item: AsChar,
 {
     move |i: I| {
         all_consuming(optional_trailing_nl(|x| f.parse(x)))
@@ -82,22 +82,22 @@ where
     }
 }
 
-pub fn optional_trailing_nl<F, I, R, E>(mut f: F) -> impl FnMut(I) -> IResult<I, R, E>
+pub fn optional_trailing_nl<F, I, R, E>(mut f: F) -> impl Parser<I, Output = R, Error = E>
 where
-    I: Compare<I> + InputIter + InputTake + Clone + Slice<RangeFrom<usize>>,
-    F: Parser<I, R, E>,
+    I: Compare<I> + Input + Clone,
+    F: Parser<I, Output = R, Error = E>,
     E: ParseError<I>,
-    <I as InputIter>::Item: AsChar,
+    <I as Input>::Item: AsChar,
 {
     move |i: I| terminated(|x| f.parse(x), opt(newline)).parse(i)
 }
 
-pub fn nom_lines<F, I, R, E>(mut f: F) -> impl FnMut(I) -> IResult<I, Vec<R>, E>
+pub fn nom_lines<F, I, R, E>(mut f: F) -> impl Parser<I, Output = Vec<R>, Error = E>
 where
-    I: Compare<I> + InputIter + Slice<RangeFrom<usize>> + InputLength + InputTake + Clone,
-    F: Parser<I, R, E>,
+    I: Compare<I> + Input + Clone,
+    F: Parser<I, Output = R, Error = E>,
     E: ParseError<I>,
-    <I as InputIter>::Item: AsChar,
+    <I as Input>::Item: AsChar,
 {
     move |i: I| separated_list0(newline, |x| f.parse(x)).parse(i)
 }
@@ -107,11 +107,11 @@ pub fn fold_separated_list0<I, O, O2, E, F, G, H, R, S>(
     mut f: F,
     mut init: H,
     mut combiner: G,
-) -> impl FnMut(I) -> IResult<I, R, E>
+) -> impl Parser<I, Output = R, Error = E>
 where
-    I: Clone + InputLength,
-    F: Parser<I, O, E>,
-    S: Parser<I, O2, E>,
+    I: Clone + Input,
+    F: Parser<I, Output = O, Error = E>,
+    S: Parser<I, Output = O2, Error = E>,
     E: ParseError<I>,
     G: FnMut(R, O) -> R,
     H: FnMut() -> R,
@@ -161,11 +161,11 @@ pub fn fold_separated_list1<I, O, O2, E, F, G, H, R, S>(
     mut f: F,
     mut init: H,
     mut combiner: G,
-) -> impl FnMut(I) -> IResult<I, R, E>
+) -> impl Parser<I, Output = R, Error = E>
 where
-    I: Clone + InputLength,
-    F: Parser<I, O, E>,
-    S: Parser<I, O2, E>,
+    I: Clone + Input,
+    F: Parser<I, Output = O, Error = E>,
+    S: Parser<I, Output = O2, Error = E>,
     E: ParseError<I>,
     G: FnMut(R, O) -> R,
     H: FnMut() -> R,
