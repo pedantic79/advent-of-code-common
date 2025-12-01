@@ -32,15 +32,16 @@ where
     Some((l, r))
 }
 
+pub fn parse_lines_fn<T>(s: &str, f: impl Fn(&str) -> T) -> Vec<T> {
+    s.lines().map(f).collect()
+}
+
 pub fn parse_lines<T>(s: &str) -> Vec<T>
 where
     T: FromStr,
     <T as FromStr>::Err: Debug,
 {
-    s.lines()
-        .map(|line| line.parse())
-        .collect::<Result<_, _>>()
-        .unwrap()
+    parse_lines_fn(s, |line| line.parse().unwrap())
 }
 
 pub fn parse_split<'a, T, P>(s: &'a str, p: P) -> Vec<T>
