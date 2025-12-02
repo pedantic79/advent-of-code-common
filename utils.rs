@@ -46,11 +46,7 @@ where
         std::mem::swap(&mut x0, &mut x1);
     }
 
-    if x1.1 {
-        m0 - x1.0
-    } else {
-        x1.0
-    }
+    if x1.1 { m0 - x1.0 } else { x1.0 }
 }
 
 pub fn mod_pow<T>(mut base: T, mut exp: T, modulus: T) -> T

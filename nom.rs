@@ -1,12 +1,12 @@
 use std::fmt::Debug;
 
 use nom::{
+    AsChar, Compare, IResult, Input, Parser,
     character::complete::newline,
     combinator::{all_consuming, map, opt},
     error::{ErrorKind, ParseError},
     multi::separated_list0,
     sequence::terminated,
-    AsChar, Compare, IResult, Input, Parser,
 };
 
 /// parser for `usize` that is a  wrapper around [u64](https://docs.rs/nom/latest/nom/character/complete/fn.u64.html).
