@@ -14,6 +14,11 @@ samply day part:
     cargo aoc --profile -d {{day}} -p {{part}}
     samply record -r 1000000000 /Users/dnn/.cargo-target/release/aoc-autobuild
 
+perf day part:
+    cargo aoc --profile -d {{day}} -p {{part}}
+    perf record --call-graph dwarf -F 32000 /home/dnn/.cargo-target/release/aoc-autobuild
+    perf report -g
+
 author-to-commit-date:
     git filter-branch --env-filter 'export GIT_COMMITTER_DATE="$GIT_AUTHOR_DATE"'
 
