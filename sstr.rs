@@ -31,3 +31,21 @@ impl<const N: usize> From<[u8; N]> for SStr<N> {
         Self(value)
     }
 }
+
+impl<const N: usize> From<&str> for SStr<N> {
+    fn from(value: &str) -> Self {
+        Self(value.as_bytes().try_into().unwrap())
+    }
+}
+
+impl<const N: usize> PartialEq<str> for SStr<N> {
+    fn eq(&self, other: &str) -> bool {
+        other.len() == N && self.0 == other.as_bytes()
+    }
+}
+
+impl<const N: usize> PartialEq<&str> for SStr<N> {
+    fn eq(&self, other: &&str) -> bool {
+        other.len() == N && self.0 == other.as_bytes()
+    }
+}
