@@ -248,3 +248,115 @@ where
 
     (a, p)
 }
+
+#[cfg(feature = "common_test")]
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_modular_arithmetic() {
+        // mod_inv
+        // Inverse of 3 modulo 11 is 4, because 3 * 4 = 12 = 1 mod 11
+        assert_eq!(mod_inv(3, 11), 4);
+        assert_eq!(mod_inv(2, 5), 3);
+
+        // mod_pow
+        // 2^10 mod 1000 = 1024 mod 1000 = 24
+        assert_eq!(mod_pow(2, 10, 1000), 24);
+        // 5^3 mod 7 = 125 mod 7 = 6 (since 17 * 7 = 119)
+        assert_eq!(mod_pow(5, 3, 7), 6);
+    }
+
+    #[test]
+    fn test_discrete_log_and_crt() {
+        // baby_step_giant_step
+        // Solve: 2^x = 8 (mod 11). x should be 3
+        assert_eq!(baby_step_giant_step(11, 2, 8), Some(3));
+        // Solve: 2^x = 5 (mod 11). Let's check powers of 2 mod 11:
+        // 2^0=1, 2^1=2, 2^2=4, 2^3=8, 2^4=5. x should be 4
+        assert_eq!(baby_step_giant_step(11, 2, 5), Some(4));
+        // Unsolvable
+        assert_eq!(baby_step_giant_step(11, 2, 0), None);
+
+        // chinese_remainder_theorem
+        // x = 2 mod 3
+        // x = 3 mod 5
+        // x = 2 mod 7
+        // Answer is 23
+        let inputs = vec![(2, 3), (3, 5), (2, 7)];
+        assert_eq!(chinese_remainder_theorem(inputs.into_iter()), 23);
+    }
+
+    #[test]
+    fn test_build_array() {
+        let iter = vec![1, 2, 3].into_iter();
+        let arr: [i32; 3] = build_array(iter);
+        assert_eq!(arr, [1, 2, 3]);
+    }
+
+    #[test]
+    fn test_neighbors() {
+        // 3x3 grid, neighbors of (1, 1) should be (0, 1), (1, 0), (1, 2), (2, 1)
+        let mut normal: Vec<(usize, usize)> = neighbors(1, 1, 3, 3).collect();
+        normal.sort();
+        let mut expected = vec![(0, 1), (1, 0), (1, 2), (2, 1)];
+        expected.sort();
+        assert_eq!(normal, expected);
+
+        // neighbors and self
+        let mut and_self: Vec<(usize, usize)> = neighbors_and_self(1, 1, 3, 3).collect();
+        and_self.sort();
+        let mut expected_and_self = vec![(0, 1), (1, 0), (1, 1), (1, 2), (2, 1)];
+        expected_and_self.sort();
+        assert_eq!(and_self, expected_and_self);
+
+        // neighbors diag
+        let mut diag: Vec<(usize, usize)> = neighbors_diag(1, 1, 3, 3).collect();
+        diag.sort();
+
+        #[rustfmt::skip]
+        let mut expected_diag = vec![
+            (0, 0), (0, 1), (0, 2),
+            (1, 0),         (1, 2),
+            (2, 0), (2, 1), (2, 2),
+        ];
+        expected_diag.sort();
+        assert_eq!(diag, expected_diag);
+    }
+
+    #[test]
+    fn test_slice_get_mut_twice() {
+        let mut data = vec![100, 200, 300];
+        let (x, y) = slice_get_mut_twice(&mut data, 0, 2);
+        assert_eq!(*x, 100);
+        assert_eq!(*y, 300);
+        *x = 105;
+        *y = 305;
+        assert_eq!(data, vec![105, 200, 305]);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_slice_get_mut_twice_panic() {
+        let mut data = vec![100, 200, 300];
+        let _ = slice_get_mut_twice(&mut data, 1, 1);
+    }
+
+    #[test]
+    fn test_calculate_area_perimeter() {
+        // Let's calculate area and perimeter of a 2x2 square
+        // Points: (0,0) -> (0,2) -> (2,2) -> (2,0) -> (0,0) (closed loop)
+        let points = vec![(0i32, 0i32), (0, 2), (2, 2), (2, 0), (0, 0)];
+        let (area, perimeter) = calculate_area_perimeter(points.into_iter());
+        // Green's theorem / Shoelace double area:
+        // Sum(x_i * y_{i+1} - y_i * x_{i+1})
+        // (0*2 - 0*0) + (0*2 - 2*2) + (2*0 - 2*2) + (2*0 - 0*0)
+        // 0 - 4 - 4 + 0 = -8. The absolute double area is 8, so actual area is 4 (or -4/8 depending on orientation/double area representation).
+        // Let's check:
+        // area = 0*2 - 0*0 + 0*2 - 2*2 + 2*0 - 2*2 + 2*0 - 0*0 = -8.
+        // perimeter = |0-0| + |0-2| + |0-2| + |2-2| + |2-2| + |2-0| + |2-0| + |0-0| = 2 + 2 + 2 + 2 = 8.
+        assert_eq!(area.abs(), 8); // Double area is returned
+        assert_eq!(perimeter, 8);
+    }
+}

@@ -25,3 +25,36 @@ pub fn accumulate_max_n<const N: usize, T: Ord>(mut heap: [T; N], x: T) -> [T; N
     }
     heap
 }
+
+#[cfg(feature = "common_test")]
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_accumulate_max_n() {
+        // Start with a sorted array representing the initial heap of largest elements
+        let heap = [10, 8, 5, 2];
+
+        // Insert smaller element - should not modify heap
+        assert_eq!(accumulate_max_n(heap, 1), [10, 8, 5, 2]);
+
+        // Insert element larger than the smallest element
+        assert_eq!(accumulate_max_n(heap, 3), [10, 8, 5, 3]);
+
+        // Insert element larger than all elements
+        assert_eq!(accumulate_max_n(heap, 12), [12, 10, 8, 5]);
+
+        // Insert element in the middle
+        assert_eq!(accumulate_max_n(heap, 9), [10, 9, 8, 5]);
+
+        // Accumulate a series of values into a fresh (initially zero) heap
+        let mut h = [0; 3];
+        h = accumulate_max_n(h, 5);
+        h = accumulate_max_n(h, 3);
+        h = accumulate_max_n(h, 8);
+        h = accumulate_max_n(h, 2);
+        h = accumulate_max_n(h, 9);
+        assert_eq!(h, [9, 8, 5]);
+    }
+}

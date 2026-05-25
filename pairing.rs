@@ -111,6 +111,7 @@ where
     (x, y)
 }
 
+#[cfg(feature = "common_test")]
 #[cfg(test)]
 mod test {
     use super::*;

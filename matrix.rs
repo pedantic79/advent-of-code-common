@@ -121,3 +121,117 @@ where
 
     rotated
 }
+
+#[cfg(feature = "common_test")]
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_square_rotations_and_flip() {
+        // Let's create a 3x3 square matrix
+        // 1 2 3
+        // 4 5 6
+        // 7 8 9
+        #[rustfmt::skip]
+        let mut mat = [
+            [1, 2, 3],
+            [4, 5, 6],
+            [7, 8, 9]
+        ];
+
+        // Flip (reverse each row)
+        // 3 2 1
+        // 6 5 4
+        // 9 8 7
+        flip(&mut mat);
+        #[rustfmt::skip]
+        assert_eq!(mat, [
+            [3, 2, 1],
+            [6, 5, 4],
+            [9, 8, 7]
+        ]);
+
+        // Flip back
+        flip(&mut mat);
+
+        // Rotate Right (90 deg clockwise)
+        // 7 4 1
+        // 8 5 2
+        // 9 6 3
+        rotate_right(&mut mat);
+        #[rustfmt::skip]
+        assert_eq!(mat, [
+            [7, 4, 1],
+            [8, 5, 2],
+            [9, 6, 3]
+        ]);
+
+        // Rotate Left (90 deg counter-clockwise) back to original
+        rotate_left(&mut mat);
+        #[rustfmt::skip]
+        assert_eq!(mat, [
+            [1, 2, 3],
+            [4, 5, 6],
+            [7, 8, 9]
+        ]);
+
+        // Rotate Bottom (180 deg)
+        // 9 8 7
+        // 6 5 4
+        // 3 2 1
+        rotate_bottom(&mut mat);
+        #[rustfmt::skip]
+        assert_eq!(mat, [
+            [9, 8, 7],
+            [6, 5, 4],
+            [3, 2, 1]
+        ]);
+    }
+
+    #[test]
+    fn test_rectangular_rotations() {
+        // Create a 2x3 matrix (M x N)
+        // 1 2 3
+        // 4 5 6
+        #[rustfmt::skip]
+        let mat = [
+            [1, 2, 3],
+            [4, 5, 6],
+        ];
+
+        // rotate_right_m_n: should be 3x2
+        // 4 1
+        // 5 2
+        // 6 3
+        let r_right = rotate_right_m_n(&mat);
+        #[rustfmt::skip]
+        assert_eq!(r_right, vec![
+            vec![4, 1],
+            vec![5, 2],
+            vec![6, 3],
+        ]);
+
+        // rotate_left_m_n: should be 3x2
+        // 3 6
+        // 2 5
+        // 1 4
+        let r_left = rotate_left_m_n(&mat);
+        #[rustfmt::skip]
+        assert_eq!(r_left, vec![
+            vec![3, 6],
+            vec![2, 5],
+            vec![1, 4],
+        ]);
+
+        // rotate_bottom_m_n: should be 2x3
+        // 6 5 4
+        // 3 2 1
+        let r_bottom = rotate_bottom_m_n(&mat);
+        #[rustfmt::skip]
+        assert_eq!(r_bottom, vec![
+            vec![6, 5, 4],
+            vec![3, 2, 1],
+        ]);
+    }
+}

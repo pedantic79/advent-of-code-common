@@ -49,3 +49,44 @@ impl<const N: usize> PartialEq<&str> for SStr<N> {
         other.len() == N && self.0 == other.as_bytes()
     }
 }
+
+#[cfg(feature = "common_test")]
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
+
+    #[test]
+    fn test_sstr_creation_and_methods() {
+        let raw = [b'a', b'b', b'c'];
+        let sstr: SStr<3> = SStr::from(raw);
+        assert_eq!(sstr.as_str(), "abc");
+        assert!(sstr.starts_with(b'a'));
+        assert!(!sstr.starts_with(b'b'));
+
+        let from_str = SStr::<3>::from("abc");
+        assert_eq!(from_str.as_str(), "abc");
+
+        let parsed = SStr::<3>::from_str("abc");
+        assert!(parsed.is_ok());
+        assert_eq!(parsed.unwrap().as_str(), "abc");
+
+        let parsed_err = SStr::<3>::from_str("abcd");
+        assert!(parsed_err.is_err());
+    }
+
+    #[test]
+    fn test_sstr_equality() {
+        let sstr: SStr<3> = SStr::from("abc");
+        assert_eq!(sstr, "abc");
+        assert_eq!(sstr, *"abc");
+        assert_ne!(sstr, "abcd");
+        assert_ne!(sstr, "ab");
+    }
+
+    #[test]
+    fn test_sstr_formatting() {
+        let sstr: SStr<3> = SStr::from("abc");
+        assert_eq!(format!("{:?}", sstr), "abc");
+    }
+}

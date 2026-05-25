@@ -209,3 +209,59 @@ where
         }
     }
 }
+
+#[cfg(feature = "common_test")]
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nom::character::complete::char;
+
+    #[test]
+    fn test_nom_integers() {
+        assert_eq!(nom_usize("123"), Ok(("", 123)));
+        assert_eq!(nom_isize("-456"), Ok(("", -456)));
+        assert_eq!(nom_u8("12"), Ok(("", 12)));
+        assert_eq!(
+            nom_i8::<&str, nom::error::Error<&str>>("-34"),
+            Ok(("", -34))
+        );
+    }
+
+    #[test]
+    fn test_process_input() {
+        let mut p = process_input(nom_usize);
+        assert_eq!(p("123\n"), 123);
+        assert_eq!(p("456"), 456);
+    }
+
+    #[test]
+    fn test_optional_trailing_nl() {
+        let mut parser = optional_trailing_nl(nom_usize);
+        assert_eq!(parser.parse("123\n"), Ok(("", 123)));
+        assert_eq!(parser.parse("456"), Ok(("", 456)));
+    }
+
+    #[test]
+    fn test_nom_lines() {
+        let mut parser = nom_lines(nom_usize);
+        assert_eq!(parser.parse("1\n2\n3"), Ok(("", vec![1, 2, 3])));
+    }
+
+    #[test]
+    fn test_fold_separated_list0() {
+        // Parse a comma-separated list of numbers and sum them
+        let mut parser = fold_separated_list0(char(','), nom_usize, || 0usize, |acc, x| acc + x);
+
+        assert_eq!(parser.parse("1,2,3"), Ok(("", 6)));
+        assert_eq!(parser.parse(""), Ok(("", 0)));
+    }
+
+    #[test]
+    fn test_fold_separated_list1() {
+        // Parse at least one number in a comma-separated list and sum them
+        let mut parser = fold_separated_list1(char(','), nom_usize, || 0usize, |acc, x| acc + x);
+
+        assert_eq!(parser.parse("1,2,3"), Ok(("", 6)));
+        assert!(parser.parse("").is_err());
+    }
+}
