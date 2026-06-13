@@ -1,6 +1,16 @@
 #!/bin/bash
 
-NUM=$(printf "%02d" "$1")
+DAY=$1
+if [ -z "$DAY" ]; then
+    LAST_DAY=$(ls src/day[0-9][0-9].rs 2>/dev/null | grep -o '[0-9]\+' | sort -n | tail -n 1)
+    if [ -z "$LAST_DAY" ]; then
+        DAY=1
+    else
+        DAY=$((10#$LAST_DAY + 1))
+    fi
+fi
+
+NUM=$(printf "%02d" "$DAY")
 
 if [ -f "src/day$NUM.rs" ]; then
     echo "day$NUM already exists"
@@ -8,7 +18,7 @@ if [ -f "src/day$NUM.rs" ]; then
 fi
 
 cp "src/template.rs" "src/day$NUM.rs"
-gsed -i "s/dayN/day$1/" "src/day$NUM.rs"
+gsed -i "s/dayN/day$DAY/" "src/day$NUM.rs"
 gsed -i "/Insert before/i pub mod day$NUM;" "src/lib.rs"
 
 if [ -e .year ]; then
@@ -17,5 +27,5 @@ else
     year=$(date +%Y | tr -d '\n')
 fi
 
-gsed -i "/Insert before/i - \[Day $1:\]\(https://adventofcode.com/$year/day/$1\)\n  - \[solution\]\(src/day$NUM.rs\)" README.md
+gsed -i "/Insert before/i - \[Day $DAY:\]\(https://adventofcode.com/$year/day/$DAY\)\n  - \[solution\]\(src/day$NUM.rs\)" README.md
 cargo fmt

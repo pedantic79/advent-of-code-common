@@ -23,7 +23,10 @@ pub fn accumulate_max_n<const N: usize, T: Ord>(mut heap: [T; N], x: T) -> [T; N
     if x <= heap[N - 1] {
         return heap;
     }
-    let i = heap[..N - 1].iter().position(|val| *val < x).unwrap_or(N - 1);
+    let i = heap[..N - 1]
+        .iter()
+        .position(|val| *val < x)
+        .unwrap_or(N - 1);
     // SAFETY:
     // 1. `N` is strictly greater than 0 due to the earlier check.
     // 2. The index `i` is guaranteed to be in the range `0..=N - 1` since
