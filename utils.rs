@@ -216,19 +216,8 @@ pub fn neighbors_diag_and_self(
 }
 
 pub fn slice_get_mut_twice<T>(slice: &mut [T], index0: usize, index1: usize) -> (&mut T, &mut T) {
-    assert_ne!(index0, index1);
-    assert!(index0 < slice.len());
-    assert!(index1 < slice.len());
-
-    // SAFETY: guarantee that the indices are never the same. So it is safe to
-    // have two mutable references into the Vec. We'll double check that the
-    // indices are within the bounds.
-    unsafe {
-        let ptr = slice.as_mut_ptr();
-        let one = &mut *ptr.add(index0);
-        let two = &mut *ptr.add(index1);
-        (one, two)
-    }
+    let [one, two] = slice.get_disjoint_mut([index0, index1]).unwrap();
+    (one, two)
 }
 
 pub fn calculate_area_perimeter<T>(points: impl Iterator<Item = (T, T)>) -> (T, T)

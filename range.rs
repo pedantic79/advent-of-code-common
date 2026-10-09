@@ -3,6 +3,26 @@ use std::{
     ops::Range,
 };
 
+/// Inclusive overlap of two endpoint pairs, independent of endpoint order.
+pub fn overlap_bounds<T: Ord + Copy>((a, b): (T, T), (c, d): (T, T)) -> Option<(T, T)> {
+    let low = a.min(b).max(c.min(d));
+    let high = a.max(b).min(c.max(d));
+
+    (low <= high).then_some((low, high))
+}
+
+#[cfg(test)]
+mod overlap_tests {
+    use super::overlap_bounds;
+
+    #[test]
+    fn handles_reversed_disjoint_and_touching_intervals() {
+        assert_eq!(overlap_bounds((5_u64, 1), (7, 3)), Some((3, 5)));
+        assert_eq!(overlap_bounds((1_i32, 3), (3, 5)), Some((3, 3)));
+        assert_eq!(overlap_bounds((1, 2), (3, 4)), None);
+    }
+}
+
 /// range_intersect takes range `range` and range `cutter`. This calculates the three possible
 /// overlaps of `range` with respects to `cutter`
 ///

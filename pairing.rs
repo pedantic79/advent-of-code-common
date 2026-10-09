@@ -2,7 +2,7 @@ pub fn pair<T>(x: T, y: T) -> usize
 where
     T: num::Unsigned + num::PrimInt,
 {
-    let to_usize = |o: T| unsafe { o.to_usize().unwrap_unchecked() };
+    let to_usize = |o: T| o.to_usize().expect("coordinate must fit usize");
     let x1 = to_usize(x);
     let y1 = to_usize(y);
 
@@ -25,7 +25,7 @@ pub fn unpair<T>(z: usize) -> (T, T)
 where
     T: num::Unsigned + num::PrimInt,
 {
-    let from_usize = |n| unsafe { T::from(n).unwrap_unchecked() };
+    let from_usize = |n| T::from(n).expect("coordinate must fit the output type");
     let (x, y) = unpair_internal(z);
     (from_usize(x), from_usize(y))
 }
@@ -41,7 +41,7 @@ where
     T: num::Signed + num::PrimInt,
 {
     // make sure the compiler optimises this conversion for types smaller than usize
-    let to_usize = |o: T| (unsafe { o.to_i32().unwrap_unchecked() }) as usize;
+    let to_usize = |o: T| (o.to_i32().expect("coordinate must fit i32")) as usize;
 
     let x1 = to_usize((x.abs() << 1) | T::from(x.is_negative() as u8).unwrap());
     let y1 = to_usize((y.abs() << 1) | T::from(y.is_negative() as u8).unwrap());
@@ -76,7 +76,7 @@ pub fn pair2d_b<T>(x: T, y: T) -> usize
 where
     T: num::Signed + num::PrimInt + num::FromPrimitive,
 {
-    let to_usize = |o: T| (unsafe { o.to_i32().unwrap_unchecked() }) as usize;
+    let to_usize = |o: T| (o.to_i32().expect("coordinate must fit i32")) as usize;
     let neg = T::from_i8(-1).unwrap();
 
     let xsign = T::from_u8(x.is_negative() as u8).unwrap();
@@ -94,7 +94,7 @@ pub fn unpair2d_b<T>(z: usize) -> (T, T)
 where
     T: num::Signed + num::PrimInt + num::FromPrimitive,
 {
-    let from_usize = |o: usize| unsafe { T::from_i32(o as i32).unwrap_unchecked() };
+    let from_usize = |o: usize| T::from_i32(o as i32).expect("coordinate must fit the output type");
     let neg = T::from_i8(-1).unwrap();
 
     let sign_bits = z % 4;

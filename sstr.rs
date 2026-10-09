@@ -4,8 +4,6 @@
 /// graphs) without dynamic allocations (`String`). Because it wraps `[u8; N]`,
 /// it is `Copy` and implements standard comparison and formatting traits.
 ///
-/// # Safety
-/// This structure assumes the inner buffer contains valid ASCII/UTF-8 bytes.
 #[derive(Hash, PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
 pub struct SStr<const N: usize>([u8; N]);
 
@@ -26,12 +24,9 @@ impl<const N: usize> std::fmt::Debug for SStr<N> {
 impl<const N: usize> SStr<N> {
     /// Returns the inner buffer as a string slice `&str` of length `N`.
     ///
-    /// # Safety
-    /// This uses `unsafe` to cast the bytes to a `&str` without validation,
-    /// assuming the characters are valid ASCII.
+    /// Panics if raw bytes or a truncated string contain invalid UTF-8.
     pub fn as_str(&self) -> &str {
-        // SAFETY: In AOC, all characters are ascii
-        unsafe { std::str::from_utf8_unchecked(self.0.as_slice()) }
+        std::str::from_utf8(&self.0).expect("SStr bytes must be valid UTF-8")
     }
 
     /// Returns the logical length of the string, excluding any trailing null (`\0`) bytes.
@@ -52,7 +47,7 @@ impl<const N: usize> SStr<N> {
 
     /// Returns `true` if the first byte of the string is equal to `p`.
     pub fn starts_with_byte(&self, p: u8) -> bool {
-        self.0[0] == p
+        self.0.first().is_some_and(|&byte| byte == p)
     }
 }
 
@@ -117,8 +112,19 @@ mod tests {
     use std::str::FromStr;
 
     #[test]
+    #[should_panic(expected = "SStr bytes must be valid UTF-8")]
+    fn invalid_raw_bytes_cannot_produce_an_invalid_str() {
+        SStr::from([0xff]).as_str();
+    }
+
+    #[test]
+    fn empty_strings_have_no_first_byte() {
+        assert!(!SStr::<0>::from("").starts_with_byte(b'a'));
+    }
+
+    #[test]
     fn test_sstr_creation_and_methods() {
-        let raw = [b'a', b'b', b'c'];
+        let raw = *b"abc";
         let sstr: SStr<3> = SStr::from(raw);
         assert_eq!(sstr.as_str(), "abc");
         assert!(sstr.starts_with_byte(b'a'));

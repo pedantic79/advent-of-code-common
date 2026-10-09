@@ -107,8 +107,9 @@ mod tests {
         assert_eq!(sum.0, 30);
 
         // Clone & Copy
-        let cloned = a.clone();
-        assert_eq!(cloned.0, 10);
+        let owned = Rev(String::from("ten"));
+        let cloned = owned.clone();
+        assert_eq!(cloned, owned);
         let copied = a;
         assert_eq!(copied.0, 10);
 
