@@ -6,32 +6,10 @@ if (( $# != 0 )); then
     exit 2
 fi
 
-if [[ -z ${HOME:-} ]]; then
-    printf 'HOME must be set.\n' >&2
+if [[ ${HOME:-} != /* ]]; then
+    printf 'HOME must be an absolute path.\n' >&2
     exit 1
 fi
-
-# cargo-aoc 0.3.8 stores its session in this platform-specific config directory.
-case "$(uname -s)" in
-    Darwin)
-        cargo_aoc_dir="$HOME/Library/Application Support/com.github.gobanos.cargo-aoc"
-        ;;
-    Linux)
-        if [[ -n ${XDG_CONFIG_HOME:-} ]]; then
-            if [[ $XDG_CONFIG_HOME != /* ]]; then
-                printf 'XDG_CONFIG_HOME must be an absolute path.\n' >&2
-                exit 1
-            fi
-            cargo_aoc_dir="$XDG_CONFIG_HOME/cargo-aoc"
-        else
-            cargo_aoc_dir="$HOME/.config/cargo-aoc"
-        fi
-        ;;
-    *)
-        printf 'Unsupported operating system.\n' >&2
-        exit 1
-        ;;
-esac
 
 session=''
 if [[ -t 0 ]]; then
@@ -47,38 +25,21 @@ if [[ ! $session =~ ^[[:xdigit:]]+$ ]]; then
     exit 1
 fi
 
-aoc_file="$HOME/.adventofcode.session"
-cargo_aoc_file="$cargo_aoc_dir/credentials.toml"
-
-for target in "$aoc_file" "$cargo_aoc_file"; do
-    if [[ -d $target || -L $target ]]; then
-        printf 'Refusing to replace a directory or symbolic link: %s\n' "$target" >&2
-        exit 1
-    fi
-done
+session_file="$HOME/.adventofcode.session"
+if [[ -d $session_file || -L $session_file ]]; then
+    printf 'Refusing to replace a directory or symbolic link: %s\n' "$session_file" >&2
+    exit 1
+fi
 
 umask 077
-mkdir -p "$cargo_aoc_dir"
-
-tmp_aoc=''
-tmp_cargo_aoc=''
-cleanup() {
-    [[ -z $tmp_aoc ]] || rm -f "$tmp_aoc"
-    [[ -z $tmp_cargo_aoc ]] || rm -f "$tmp_cargo_aoc"
-}
-trap cleanup EXIT
-
-tmp_aoc="$(mktemp "$aoc_file.tmp.XXXXXX")"
-tmp_cargo_aoc="$(mktemp "$cargo_aoc_file.tmp.XXXXXX")"
-printf '%s\n' "$session" > "$tmp_aoc"
-printf 'session = "%s"\n' "$session" > "$tmp_cargo_aoc"
-chmod 600 "$tmp_aoc" "$tmp_cargo_aoc"
+tmp_session=$(mktemp "$session_file.tmp.XXXXXX")
+trap 'rm -f "$tmp_session"' EXIT
+printf '%s\n' "$session" > "$tmp_session"
 unset session
 
-mv -f "$tmp_aoc" "$aoc_file"
-mv -f "$tmp_cargo_aoc" "$cargo_aoc_file"
-printf 'Updated credentials for aoc and cargo-aoc.\n'
+mv -f "$tmp_session" "$session_file"
+printf 'Updated aoc-harness session file: %s\n' "$session_file"
 
-if [[ -n ${ADVENT_OF_CODE_SESSION:-} ]]; then
-    printf 'ADVENT_OF_CODE_SESSION is set and takes precedence over the aoc session file.\n' >&2
+if [[ ${ADVENT_OF_CODE_SESSION:-} =~ [^[:space:]] ]]; then
+    printf 'ADVENT_OF_CODE_SESSION takes precedence over the aoc-harness session file.\n' >&2
 fi

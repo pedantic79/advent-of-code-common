@@ -1,32 +1,109 @@
 _default:
     @just -l
 
+# Generate the given day, or the day after the latest source file.
+[positional-arguments]
+add-day day="": _ensure-submodule-branches
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    day=$1
+    if [[ -z $day ]]; then
+        for ((last = 25; last > 0; last--)); do
+            printf -v padded '%02d' "$last"
+            if [[ -f src/day$last.rs || -f src/day$padded.rs ]]; then
+                break
+            fi
+        done
+        day=$((last + 1))
+    fi
+
+    if [[ ! $day =~ ^[0-9]{1,2}$ ]] || (( 10#$day < 1 || 10#$day > 25 )); then
+        echo "Expected a day from 1 to 25, got '$day'" >&2
+        exit 1
+    fi
+    day=$((10#$day))
+    printf -v module 'day%02d' "$day"
+    for source in "src/$module.rs" "src/day$day.rs" "src/$module/mod.rs" "src/day$day/mod.rs"; do
+        if [[ -f $source ]]; then
+            echo "$source already exists" >&2
+            exit 1
+        fi
+    done
+
+    year=$(perl -0777 -ne 'print $1 if /^\s*(?:\w+::)*aoc_lib!\s*[{(]\s*year\s*=\s*([0-9]{4})\s*,?\s*[})]/m' src/lib.rs)
+    if [[ -z $year ]]; then
+        echo "Expected a four-digit year in the aoc_lib! declaration in src/lib.rs" >&2
+        exit 1
+    fi
+
+    cargo aoc-harness generate --day "$day"
+    if [[ ! -f src/$module.rs ]]; then
+        echo "Expected aoc-harness to generate src/$module.rs" >&2
+        exit 1
+    fi
+
+    gsed -Ei "s/^([[:blank:]]*)mod $module;/\1pub mod $module;/" src/lib.rs
+    gsed -i "/Insert before/i - [Day $day:](https://adventofcode.com/$year/day/$day)\n  - [solution](src/$module.rs)" README.md
+    cargo fmt
+    echo "Added src/$module.rs"
+
+_ensure-submodule-branches:
+    #!/bin/sh -eu
+    git submodule foreach --quiet '
+        set -eu
+        git symbolic-ref -q HEAD >/dev/null && exit 0
+        set -- $(git for-each-ref --points-at HEAD --format="%(refname:lstrip=2)" refs/heads/)
+        if [ "$#" -eq 1 ]; then
+            exec git switch -- "$1"
+        fi
+
+        if [ "$#" -gt 1 ]; then
+            ref=refs/remotes/origin/HEAD
+            git symbolic-ref -q "$ref" >/dev/null || git remote set-head origin --auto
+            default=$(git symbolic-ref "$ref")
+            for branch do
+                if [ "$default" = "refs/remotes/origin/$branch" ]; then
+                    exec git switch -- "$branch"
+                fi
+            done
+        fi
+
+        echo "Cannot choose a local branch pointing to HEAD in $displaypath" >&2
+        exit 1
+    '
+
 commit-input:
     cd input && [[ -n $(git status -s) ]] && git add . && git commit -m "$(git status --porcelain | sed 's/A /Add/')" && git push
 
 cherry-pick commit:
     git cherry-pick {{commit}}
-    cargo aoc
+    cargo aoc-harness run
     just commit-input
     git commit --amend --no-edit -a
 
 samply day part:
-    cargo aoc --profile -d {{day}} -p {{part}}
-    samply record -r 1000000000 /Users/dnn/.cargo-target/release/aoc-autobuild
+    cargo aoc-harness profile --day {{day}} --part {{part}} --family solver --profiler samply
 
 perf day part:
-    cargo aoc --profile -d {{day}} -p {{part}}
-    perf record --call-graph dwarf -F 32000 /home/dnn/.cargo-target/release/aoc-autobuild
-    perf report -g
+    cargo aoc-harness profile --day {{day}} --part {{part}} --family solver --profiler perf
 
 author-to-commit-date:
     git filter-branch --env-filter 'export GIT_COMMITTER_DATE="$GIT_AUTHOR_DATE"'
 
-watch-test day:
-    cargo watch test -- $(printf "day%02d" {{day}}) -- --no-capture --test-threads=1
+# Rerun matching library tests when files change.
+[positional-arguments]
+watch-test filter:
+    #!/usr/bin/env bash
+    export AOC_TEST_FILTER="$1"
+    if [[ $1 =~ ^(day)?([0-9]{1,2})$ ]]; then
+        printf -v AOC_TEST_FILTER 'day%02d::' "$((10#${BASH_REMATCH[2]}))"
+    fi
+
+    exec cargo watch -x 'test --lib -- --no-capture --test-threads=1 "$AOC_TEST_FILTER"'
 
 wait-get-input day:
     caffeinate -disu sleep-progress -u "11:00:04pm" -p
-    cargo aoc input -d {{day}}
+    cargo aoc-harness input --day {{day}}
     (cd input && git checkout main)
     (cd src/common && git checkout main)
