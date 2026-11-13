@@ -26,7 +26,7 @@ mod overlap_tests {
 /// range_intersect takes range `range` and range `cutter`. This calculates the three possible
 /// overlaps of `range` with respects to `cutter`
 ///
-/// ```ignore
+/// ```text
 /// range  [         )
 /// cutter     [   )
 ///        [   )       <- before

@@ -17,3 +17,6 @@ pub mod utils;
 pub use extensions::*;
 pub use range::*;
 pub use utils::rev::Rev;
+
+#[cfg(all(test, feature = "common_test"))]
+mod miri_tests;

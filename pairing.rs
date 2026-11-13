@@ -1,137 +1,148 @@
-// Branchless codegen contract: these unchecked primitive conversions must stay
-// branchless on Apple Silicon Macs (aarch64-apple-darwin) in optimized builds.
-// Verified with rustc 1.100.0-beta.4, opt-level=3, panic=abort, and both generic
-// and native CPUs. Recheck assembly when changing the compiler or build settings.
+//! Branchless Cantor pairing for primitive integers.
+//!
+//! Numeric casts truncate like Rust's `as`, and arithmetic wraps.
+//! Exact roundtrips require coordinates and results to fit their integer types,
+//! pairing arithmetic not to overflow, and `8 * z + 1` to fit `usize` on decode.
 
-/// Pair unsigned coordinates that fit usize without overflowing the arithmetic.
+use num::traits::AsPrimitive;
+
+/// Pair unsigned coordinates, casting them to usize before pairing.
+///
+/// An exact result requires both coordinates and every intermediate in
+/// `(x + y) * (x + y + 1) / 2 + y` to fit `usize`.
+/// See [`unpair`] for the additional bounds needed for a roundtrip.
+///
+/// Outside these bounds, casts truncate and arithmetic wraps, which can lose
+/// information.
+#[inline]
 pub fn pair<T>(x: T, y: T) -> usize
 where
-    T: num::Unsigned + num::PrimInt,
+    T: num::Unsigned + num::PrimInt + AsPrimitive<usize>,
 {
-    // SAFETY: The caller must ensure both coordinates fit usize.
-    let to_usize = |o: T| unsafe { o.to_usize().unwrap_unchecked() };
-    let x1 = to_usize(x);
-    let y1 = to_usize(y);
+    let x = x.as_();
+    let y = y.as_();
+    let sum = x.wrapping_add(y);
 
-    let sum = x1 + y1;
-    sum * (sum + 1) / 2 + y1
+    (sum.wrapping_mul(sum.wrapping_add(1)) / 2).wrapping_add(y)
 }
 
 #[inline]
 fn unpair_internal(z: usize) -> (usize, usize) {
-    let w = (((8 * z + 1) as f64).sqrt() as usize - 1) / 2;
-    let t = w * (w + 1) / 2;
-    let y = z - t;
-    let x = w - y;
+    let discriminant = z.wrapping_mul(8).wrapping_add(1);
+    let estimate = ((discriminant as f64).sqrt() as usize).wrapping_sub(1) / 2;
 
-    (x, y)
+    // Floating-point rounding can put the estimate on either side of a
+    // triangular boundary. Correct by at most one without conditional control flow.
+    let triangular = |w: usize| w.wrapping_mul(w.wrapping_add(1)) / 2;
+    let w = estimate.wrapping_sub((triangular(estimate) > z) as usize);
+    let w = w.wrapping_add((triangular(w.wrapping_add(1)) <= z) as usize);
+    let y = z.wrapping_sub(triangular(w));
+
+    (w.wrapping_sub(y), y)
 }
 
-/// Decode a pairing whose coordinates fit T and whose 8 * z + 1 fits usize.
+/// Decode unsigned coordinates.
+///
+/// Exact decoding requires `8 * z + 1` to fit `usize` and both decoded
+/// coordinates to fit `T`.
+///
+/// Outside these bounds, arithmetic wraps and output casts truncate, so the
+/// result may be incorrect.
 #[inline]
 pub fn unpair<T>(z: usize) -> (T, T)
 where
-    T: num::Unsigned + num::PrimInt,
+    T: num::Unsigned + num::PrimInt + 'static,
+    usize: AsPrimitive<T>,
 {
-    // SAFETY: The caller must ensure both decoded coordinates fit T.
-    let from_usize = |n| unsafe { T::from(n).unwrap_unchecked() };
     let (x, y) = unpair_internal(z);
-    (from_usize(x), from_usize(y))
+
+    (x.as_(), y.as_())
 }
 
-/// pair2d_a is a cantor pairing function extended to signed numbers
-/// It does this by storing the sign bit in the right most spot. Shifting the positive value to the left one spot
-/// so -8 becomes 0b1001
+/// Pair signed coordinates using twice the magnitude plus a low sign bit.
 ///
-/// Then it performs a cantor pairing on the positive numbers
-/// The sign-encoded magnitudes must fit both T and i32, and the pairing
-/// arithmetic must fit usize.
+/// An exact result requires both coordinates to fit `isize`, their encoded
+/// magnitudes `2 * abs(value) + is_negative` to fit `usize`, and the arithmetic
+/// in [`pair`] to fit `usize`. See [`unpair2d_a`] for the decoding bounds.
+///
+/// Outside these bounds, casts truncate and arithmetic wraps, which can lose
+/// information.
 #[inline]
 pub fn pair2d_a<T>(x: T, y: T) -> usize
 where
-    T: num::Signed + num::PrimInt,
+    T: num::Signed + num::PrimInt + AsPrimitive<isize>,
 {
-    // SAFETY: The caller must ensure the sign-encoded magnitudes fit i32.
-    let to_usize = |o: T| (unsafe { o.to_i32().unwrap_unchecked() }) as usize;
+    let encode = |value: isize| value.unsigned_abs().wrapping_shl(1) | ((value < 0) as usize);
 
-    let x1 = to_usize((x.abs() << 1) | T::from(x.is_negative() as u8).unwrap());
-    let y1 = to_usize((y.abs() << 1) | T::from(y.is_negative() as u8).unwrap());
-
-    pair(x1, y1)
+    pair(encode(x.as_()), encode(y.as_()))
 }
 
-/// Decode a pairing whose absolute coordinate magnitudes fit T.
-/// The arithmetic in unpair_internal must also fit usize.
+/// Decode the magnitude/sign encoding produced by [`pair2d_a`].
+///
+/// Exact decoding requires `8 * z + 1` to fit `usize` and both signed decoded
+/// coordinates to fit `T`.
+///
+/// Outside these bounds, arithmetic wraps and output casts truncate, so the
+/// result may be incorrect.
 #[inline]
 pub fn unpair2d_a<T>(z: usize) -> (T, T)
 where
-    T: num::Signed + num::PrimInt,
+    T: num::Signed + num::PrimInt + 'static,
+    isize: AsPrimitive<T>,
 {
-    let from_usize = |n: usize| {
-        let sign = if n & 1 == 1 { -T::one() } else { T::one() };
-        // SAFETY: The caller must ensure the decoded magnitudes fit T.
-        // Shifting usize right by one guarantees the intermediate fits isize.
-        let value = unsafe { T::from((n >> 1) as isize).unwrap_unchecked() };
-        sign * value
+    let decode = |n: usize| {
+        let sign_mask = -((n & 1) as isize);
+        (((n >> 1) as isize ^ sign_mask).wrapping_sub(sign_mask)).as_()
     };
     let (x, y) = unpair_internal(z);
 
-    (from_usize(x), from_usize(y))
+    (decode(x), decode(y))
 }
 
-/// pair2d_b is a cantor pairing function extended to signed numbers
-/// It does this by retrieving the sign bits (xsign or ysign)
-/// It then maps the number to positive by XOR with -1 (all 1's in binary) if the number is negative
-/// so -8 becomes 7, or -235 becomes 234
+/// Pair signed coordinates using XOR magnitudes and two low sign bits.
 ///
-/// Then it performs a cantor pairing on the positive numbers
-/// It then shifts the number over by 2 bits to the left and stores the signed bits in the remaining spot
-/// The XOR-mapped magnitudes must fit i32, and the pairing arithmetic must
-/// fit usize.
+/// An exact result requires both coordinates to fit `isize`, the arithmetic in
+/// [`pair`] for the XOR-mapped magnitudes to fit `usize`, and the final value
+/// `4 * paired_magnitudes + sign_bits` to fit `usize`.
+/// See [`unpair2d_b`] for the decoding bounds.
+///
+/// Outside these bounds, casts truncate and arithmetic wraps, which can lose
+/// information.
 #[inline]
 pub fn pair2d_b<T>(x: T, y: T) -> usize
 where
-    T: num::Signed + num::PrimInt + num::FromPrimitive,
+    T: num::Signed + num::PrimInt + AsPrimitive<isize>,
 {
-    // SAFETY: The caller must ensure the XOR-mapped magnitudes fit i32;
-    // the sign flags are always zero or one and therefore also fit.
-    let to_usize = |o: T| (unsafe { o.to_i32().unwrap_unchecked() }) as usize;
-    let neg = T::from_i8(-1).unwrap();
+    let x: isize = x.as_();
+    let y: isize = y.as_();
+    let xsign = (x < 0) as usize;
+    let ysign = (y < 0) as usize;
+    let x1 = (x as usize) ^ 0_usize.wrapping_sub(xsign);
+    let y1 = (y as usize) ^ 0_usize.wrapping_sub(ysign);
 
-    let xsign = T::from_u8(x.is_negative() as u8).unwrap();
-    let ysign = T::from_u8(y.is_negative() as u8).unwrap();
-
-    let x1 = to_usize(x ^ (xsign * neg));
-    let y1 = to_usize(y ^ (ysign * neg));
-    let sum = x1 + y1;
-    let tri = sum * (sum + 1) / 2 + y1;
-
-    (to_usize(xsign) | (to_usize(ysign) << 1)) + tri * 4
+    pair(x1, y1).wrapping_mul(4) | xsign | (ysign << 1)
 }
 
-/// Decode a pairing whose XOR-mapped magnitudes fit both i32 and T.
-/// The arithmetic in unpair_internal must also fit usize.
+/// Decode the XOR/sign encoding produced by [`pair2d_b`].
+///
+/// Exact decoding requires `8 * (z >> 2) + 1` to fit `usize` and both signed
+/// decoded coordinates to fit `T`.
+///
+/// Outside these bounds, arithmetic wraps and output casts truncate, so the
+/// result may be incorrect.
+#[inline]
 pub fn unpair2d_b<T>(z: usize) -> (T, T)
 where
-    T: num::Signed + num::PrimInt + num::FromPrimitive,
+    T: num::Signed + num::PrimInt + 'static,
+    isize: AsPrimitive<T>,
 {
-    // SAFETY: The caller must ensure the decoded magnitudes fit i32 and T;
-    // the sign flags are always zero or one and therefore also fit.
-    let from_usize = |o: usize| unsafe { T::from_i32(o as i32).unwrap_unchecked() };
-    let neg = T::from_i8(-1).unwrap();
+    let (x, y) = unpair_internal(z >> 2);
+    let xsign = (z & 1) as isize;
+    let ysign = ((z >> 1) & 1) as isize;
+    let x = (x as isize) ^ -xsign;
+    let y = (y as isize) ^ -ysign;
 
-    let sign_bits = z % 4;
-    let z = z >> 2;
-
-    let (x1, y1) = unpair_internal(z);
-
-    let xsign = sign_bits & 1;
-    let ysign = (sign_bits >> 1) & 1;
-
-    let x = from_usize(x1) ^ (from_usize(xsign) * neg);
-    let y = from_usize(y1) ^ (from_usize(ysign) * neg);
-
-    (x, y)
+    (x.as_(), y.as_())
 }
 
 #[cfg(feature = "common_test")]
@@ -154,6 +165,27 @@ mod test {
         }
 
         check!(u8, u16, u32, u64, usize, u128);
+    }
+
+    #[test]
+    fn decodes_both_sides_of_large_triangular_boundaries() {
+        let largest_sum = (1_usize << (usize::BITS / 2 - 1)) - 1;
+
+        for sum in [
+            1,
+            2,
+            127,
+            255,
+            largest_sum.min(65_535),
+            largest_sum - 1,
+            largest_sum,
+        ] {
+            let triangular = pair(sum, 0);
+
+            assert_eq!(unpair::<usize>(triangular - 1), (0, sum - 1));
+            assert_eq!(unpair::<usize>(triangular), (sum, 0));
+            assert_eq!(unpair::<usize>(triangular + 1), (sum - 1, 1));
+        }
     }
 
     #[test]

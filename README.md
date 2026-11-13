@@ -2,6 +2,22 @@
 
 Use as a git subtree
 
+## Undefined behavior checks
+
+In a consuming crate with the `common_test` feature enabled, run all shared
+utility tests under [Miri](https://github.com/rust-lang/miri):
+
+```bash
+rustup toolchain install nightly --profile minimal --component miri
+cargo +nightly miri setup
+cargo +nightly miri test --locked --lib --features common_test common::
+```
+
+For just the safety regressions covering numeric conversions, UTF-8 boundaries,
+custom patterns, and mutable slice references, use `common::miri_tests` as the
+test filter. These tests also run with ordinary `cargo test`. Miri checks the
+executed paths; a passing run is not a proof that every possible input is sound.
+
 ## With remote
 
 Setup:

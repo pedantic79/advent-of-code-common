@@ -8,6 +8,10 @@ pub fn parse_range<T: FromStr>(s: &str) -> Option<(T, T)> {
     parse_split_once(s, "..")
 }
 
+/// Parse the first `N` pieces, returning `None` if too few pieces or a parse fails.
+///
+/// Custom patterns may substitute their own haystack. Splitting uses that
+/// string instead of `s`.
 pub fn parse_split_n<'a, const N: usize, T, P>(s: &'a str, p: P) -> Option<[T; N]>
 where
     T: FromStr,
@@ -20,6 +24,10 @@ where
         .and_then(|o| o.into_inner().ok())
 }
 
+/// Split at the first match and parse both sides, returning `None` on failure.
+///
+/// Custom patterns may substitute their own haystack. Splitting uses that
+/// string instead of `s`.
 pub fn parse_split_once<'a, T, P>(s: &'a str, p: P) -> Option<(T, T)>
 where
     T: FromStr,
@@ -44,6 +52,14 @@ where
     parse_lines_fn(s, |line| line.parse().unwrap())
 }
 
+/// Split and parse every piece.
+///
+/// Custom patterns may substitute their own haystack. Splitting uses that
+/// string instead of `s`.
+///
+/// # Panics
+///
+/// Panics if any piece fails to parse as `T`.
 pub fn parse_split<'a, T, P>(s: &'a str, p: P) -> Vec<T>
 where
     T: FromStr,
@@ -60,16 +76,23 @@ mod pattern {
     use stable_pattern::{Pattern, Searcher, Split, SplitInternal};
 
     pub fn split_once<'a, P: Pattern<'a>>(s: &'a str, delimiter: P) -> Option<(&'a str, &'a str)> {
-        let (start, end) = delimiter.into_searcher(s).next_match()?;
-        // SAFETY: `Searcher` is known to return valid indices.
-        unsafe { Some((s.get_unchecked(..start), s.get_unchecked(end..))) }
+        let mut matcher = delimiter.into_searcher(s);
+        let (start, end) = matcher.next_match()?;
+        let haystack = matcher.haystack();
+
+        Some((&haystack[..start], &haystack[end..]))
     }
 
     pub fn split<'a, P: Pattern<'a>>(s: &'a str, pat: P) -> Split<'a, P> {
+        let matcher = pat.into_searcher(s);
+        // Searcher guarantees valid indices into its own haystack. Pattern is
+        // safe to implement and need not preserve the string passed to it.
+        let end = matcher.haystack().len();
+
         Split(SplitInternal {
             start: 0,
-            end: s.len(),
-            matcher: pat.into_searcher(s),
+            end,
+            matcher,
             allow_trailing_empty: true,
             finished: false,
         })
